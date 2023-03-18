@@ -64,7 +64,7 @@ class rocketSim():
         self.t = 0.
         self.timesteps = []
     
-    # Three functions below are the provided codes from a ptofessor.
+    # Three functions below are the provided codes from a professor.
     
     #Takes a 3D vector, and returns a tuple of the x, y, and z components
     def spherical_to_components(self, magnitude, bearing, trajectory):
