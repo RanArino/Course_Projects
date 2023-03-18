@@ -1,0 +1,415 @@
+[{
+  "_id": {
+    "$oid": "636c129134b5a1d71dea9cbf"
+  },
+  "course_id": 100,
+  "name": "Introduction of Data Science",
+  "ratings": 4.5,
+  "estimate_time": 30,
+  "level": "Beginner",
+  "released_date": "2020-10-01",
+  "categories": [
+    {
+      "name": "Data Science"
+    },
+    {
+      "name": "Data Analysis"
+    },
+    {
+      "name": "Statistics"
+    },
+    {
+      "name": "Machine Learning"
+    }
+  ],
+  "materials": [
+    {
+      "title": "What is Data Science and Analysis?",
+      "recording_time": 10
+    },
+    {
+      "title": "Fundamental Statistical Methods",
+      "recording_time": 10
+    },
+    {
+      "title": "How to Apply Data Science Strategies to the Real World.",
+      "recording_time": 10
+    }
+  ]
+},{
+  "_id": {
+    "$oid": "636c129134b5a1d71dea9cc0"
+  },
+  "course_id": 101,
+  "name": "Structured Database Design",
+  "ratings": 4.75,
+  "estimate_time": 100,
+  "level": "Beginner",
+  "released_date": "2018-01-19",
+  "categories": [
+    {
+      "name": "Data Analysis"
+    },
+    {
+      "name": "Database"
+    },
+    {
+      "name": "SQL"
+    },
+    {
+      "name": "Database Management System"
+    }
+  ],
+  "materials": [
+    {
+      "title": "What is Physical Relational Database?",
+      "recording_time": 20
+    },
+    {
+      "title": "What is Logical Relational Database?",
+      "recording_time": 20
+    },
+    {
+      "title": "How to Write Entity Relationship Diagram",
+      "recording_time": 20
+    },
+    {
+      "title": "Function of Database Management System",
+      "recording_time": 20
+    },
+    {
+      "title": "Introduction of SQL",
+      "recording_time": 20
+    }
+  ]
+},{
+  "_id": {
+    "$oid": "636c129134b5a1d71dea9cc1"
+  },
+  "course_id": 102,
+  "name": "Advanced Database Design",
+  "ratings": 4,
+  "estimate_time": 100,
+  "level": "Intermidiate",
+  "released_date": "2018-02-23",
+  "categories": [
+    {
+      "name": "Data Analysis"
+    },
+    {
+      "name": "Database"
+    },
+    {
+      "name": "NoSQL"
+    },
+    {
+      "name": "Programming"
+    }
+  ],
+  "materials": [
+    {
+      "title": "What is NoSQL?",
+      "recording_time": 20
+    },
+    {
+      "title": "Explanation of Sharding and Replication",
+      "recording_time": 20
+    },
+    {
+      "title": "What is Document Database?",
+      "recording_time": 30
+    },
+    {
+      "title": "Implementation of MongoDB",
+      "recording_time": 30
+    }
+  ]
+},{
+  "_id": {
+    "$oid": "636c129134b5a1d71dea9cc2"
+  },
+  "course_id": 103,
+  "name": "Advanced Machine Learning",
+  "ratings": 4.8,
+  "estimate_time": 120,
+  "level": "Advanced",
+  "released_date": "2019-12-02",
+  "categories": [
+    {
+      "name": "Data Analysis"
+    },
+    {
+      "name": "Data Science"
+    },
+    {
+      "name": "Machine Learning"
+    },
+    {
+      "name": "Statistics"
+    },
+    {
+      "name": "Deep Learning"
+    }
+  ],
+  "materials": [
+    {
+      "title": "Multiple Linear Model",
+      "recording_time": 20
+    },
+    {
+      "title": "Probability: Bayesian theory",
+      "recording_time": 20
+    },
+    {
+      "title": "Application of Classification",
+      "recording_time": 20
+    },
+    {
+      "title": "Data Mining & Dimensionality Reduction",
+      "recording_time": 20
+    },
+    {
+      "title": "Sampling Methods",
+      "recording_time": 20
+    },
+    {
+      "title": "Introduction of Deep Learning",
+      "recording_time": 20
+    }
+  ]
+},{
+  "_id": {
+    "$oid": "636c129134b5a1d71dea9cc3"
+  },
+  "course_id": 104,
+  "name": "Introduction of Python",
+  "ratings": 4.5,
+  "estimate_time": 90,
+  "level": "Beginner",
+  "released_date": "2017-05-16",
+  "categories": [
+    {
+      "name": "Computer Science"
+    },
+    {
+      "name": "Programming"
+    },
+    {
+      "name": "Python"
+    }
+  ],
+  "materials": [
+    {
+      "title": "Variables and Functions",
+      "recording_time": 10
+    },
+    {
+      "title": "Fundamental Math Operations",
+      "recording_time": 10
+    },
+    {
+      "title": "If statement and For Loop",
+      "recording_time": 15
+    },
+    {
+      "title": "Four Collection Data Types",
+      "recording_time": 20
+    },
+    {
+      "title": "Numpy and Pandas",
+      "recording_time": 20
+    },
+    {
+      "title": "Data Visualization: Matplotlib",
+      "recording_time": 15
+    }
+  ]
+},{
+  "_id": {
+    "$oid": "636c129134b5a1d71dea9cc4"
+  },
+  "course_id": 105,
+  "name": "Financial Economics",
+  "ratings": 4,
+  "estimate_time": 120,
+  "level": "Advanced",
+  "released_date": "2019-08-27",
+  "categories": [
+    {
+      "name": "Economics"
+    },
+    {
+      "name": "Finance"
+    },
+    {
+      "name": "Stock Market"
+    }
+  ],
+  "materials": [
+    {
+      "title": "Basic Concepts of Microeconomics",
+      "recording_time": 30
+    },
+    {
+      "title": "Basic Concepts of Macroeconomics",
+      "recording_time": 30
+    },
+    {
+      "title": "The development of Stock Market",
+      "recording_time": 30
+    },
+    {
+      "title": "Risk Management",
+      "recording_time": 30
+    }
+  ]
+},{
+  "_id": {
+    "$oid": "636c129134b5a1d71dea9cc5"
+  },
+  "course_id": 106,
+  "name": "Excel Skills for Business",
+  "ratings": 3.5,
+  "estimate_time": 45,
+  "level": "Beginner",
+  "released_date": "2020-09-30",
+  "categories": [
+    {
+      "name": "Excel"
+    },
+    {
+      "name": "Data Analysis"
+    }
+  ],
+  "materials": [
+    {
+      "title": "Excel Skills: Introduction",
+      "recording_time": 10
+    },
+    {
+      "title": "Excel Skills: Intermidiate (1)",
+      "recording_time": 10
+    },
+    {
+      "title": "Excel Skills: Intermidiate (2)",
+      "recording_time": 10
+    },
+    {
+      "title": "Excel Skills: Advanced",
+      "recording_time": 15
+    }
+  ]
+},{
+  "_id": {
+    "$oid": "636c129134b5a1d71dea9cc6"
+  },
+  "course_id": 107,
+  "name": "Mathematics for Data Science",
+  "ratings": 4,
+  "estimate_time": 90,
+  "level": "Intermidiate",
+  "released_date": "2019-07-11",
+  "categories": [
+    {
+      "name": "Mathematics"
+    },
+    {
+      "name": "Data Science"
+    },
+    {
+      "name": "Python"
+    }
+  ],
+  "materials": [
+    {
+      "title": "Limits, Derivatives, Intergrals",
+      "recording_time": 30
+    },
+    {
+      "title": "Linear Systems",
+      "recording_time": 15
+    },
+    {
+      "title": "Vector & Matrices",
+      "recording_time": 15
+    },
+    {
+      "title": "Eigenvalues & Eigenvectors",
+      "recording_time": 15
+    },
+    {
+      "title": "Regressions",
+      "recording_time": 15
+    }
+  ]
+},{
+  "_id": {
+    "$oid": "636c129134b5a1d71dea9cc7"
+  },
+  "course_id": 108,
+  "name": "Python for Stock Market Analysis",
+  "ratings": 4,
+  "estimate_time": 90,
+  "level": "Intermidiate",
+  "released_date": "2020-12-12",
+  "categories": [
+    {
+      "name": "Python"
+    },
+    {
+      "name": "Finance"
+    },
+    {
+      "name": "Stock Market"
+    }
+  ],
+  "materials": [
+    {
+      "title": "Visualizing Stock Data in Python",
+      "recording_time": 30
+    },
+    {
+      "title": "Linear Regression Model for Stock Analysis",
+      "recording_time": 30
+    },
+    {
+      "title": "Specifying Pattern of Stocks",
+      "recording_time": 30
+    }
+  ]
+},{
+  "_id": {
+    "$oid": "636c129134b5a1d71dea9cc8"
+  },
+  "course_id": 109,
+  "name": "Advanced Deep Learning",
+  "ratings": 3.6,
+  "estimate_time": 60,
+  "level": "Advanced",
+  "released_date": "2019-06-27",
+  "categories": [
+    {
+      "name": "Python"
+    },
+    {
+      "name": "Deep Learning"
+    },
+    {
+      "name": "Machine Learning"
+    }
+  ],
+  "materials": [
+    {
+      "title": "Basic Concepts of Deep Learning",
+      "recording_time": 15
+    },
+    {
+      "title": "Deep Learning Methods in Python",
+      "recording_time": 15
+    },
+    {
+      "title": "Implementation of Deep Learning",
+      "recording_time": 30
+    }
+  ]
+}]

@@ -1,0 +1,57 @@
+[{
+  "_id": {
+    "$oid": "636c175d34b5a1d71dea9cde"
+  },
+  "name": "Kristie Osborne",
+  "comment": "Kristie is a professor in the data science and analysis field.",
+  "account_id": 9,
+  "teach_course_id": [
+    100,
+    104,
+    109
+  ]
+},{
+  "_id": {
+    "$oid": "636c175d34b5a1d71dea9cdf"
+  },
+  "name": "Paris",
+  "comment": "Paris is a researcher in computer science and has experienced database manager in company.",
+  "account_id": 10,
+  "teach_course_id": [
+    101,
+    102
+  ]
+},{
+  "_id": {
+    "$oid": "636c175d34b5a1d71dea9ce0"
+  },
+  "name": "Alec Underwood",
+  "comment": "Alec is a professor in the finance and the statistics field.",
+  "account_id": 11,
+  "teach_course_id": [
+    105,
+    107
+  ]
+},{
+  "_id": {
+    "$oid": "636c175d34b5a1d71dea9ce1"
+  },
+  "name": "Norbert",
+  "comment": "Nobert is familiar with data science and stock market.",
+  "account_id": 12,
+  "teach_course_id": [
+    103,
+    106,
+    108
+  ]
+},{
+  "_id": {
+    "$oid": "636c175d34b5a1d71dea9ce2"
+  },
+  "name": "Sandy Mcbride",
+  "comment": "Sandy is teaching finance in Toronto University for more than 15 years.",
+  "account_id": 13,
+  "teach_course_id": [
+    105
+  ]
+}]

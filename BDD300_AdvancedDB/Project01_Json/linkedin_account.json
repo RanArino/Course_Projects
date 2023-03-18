@@ -1,0 +1,280 @@
+[{
+  "_id": {
+    "$oid": "636c142234b5a1d71dea9cc9"
+  },
+  "account_id": 1,
+  "first_name": "Ran",
+  "last_name": "Arino",
+  "email": "rarino@myseneca.ca",
+  "location": {
+    "country": "Canada",
+    "province": "Ontario",
+    "city": "North York"
+  },
+  "education": [
+    {
+      "school_name": "Seneca College",
+      "major": "Data Science and Analysis",
+      "enroll_date": "2022-01-13",
+      "graduate_date": ""
+    }
+  ]
+},{
+  "_id": {
+    "$oid": "636c142234b5a1d71dea9cca"
+  },
+  "account_id": 2,
+  "first_name": "Christy",
+  "last_name": "Collins",
+  "email": "ccollins@myseneca.ca",
+  "location": {
+    "country": "Canada",
+    "province": "Ontario",
+    "city": "North York"
+  },
+  "education": [
+    {
+      "school_name": "Seneca College",
+      "major": "Computer Science",
+      "enroll_date": "2021-09-06",
+      "graduate_date": ""
+    }
+  ]
+},{
+  "_id": {
+    "$oid": "636c142234b5a1d71dea9ccb"
+  },
+  "account_id": 3,
+  "first_name": "Jonathan",
+  "last_name": "Mcdaniel",
+  "email": "jmcdaniel@myseneca.ca",
+  "location": {
+    "country": "Canada",
+    "province": "Ontario",
+    "city": "North York"
+  },
+  "education": [
+    {
+      "school_name": "Seneca College",
+      "major": "Data Science and Analysis",
+      "enroll_date": "2021-09-06",
+      "graduate_date": ""
+    }
+  ]
+},{
+  "_id": {
+    "$oid": "636c142234b5a1d71dea9ccc"
+  },
+  "account_id": 4,
+  "first_name": "David",
+  "last_name": "Abbott",
+  "email": "dabbott@myseneca.ca",
+  "location": {
+    "country": "Canada",
+    "province": "Ontario",
+    "city": "North York"
+  },
+  "education": [
+    {
+      "school_name": "Seneca College",
+      "major": "Data Science and Analysis",
+      "enroll_date": "2018-09-03",
+      "graduate_date": "2022-04-22"
+    }
+  ]
+},{
+  "_id": {
+    "$oid": "636c142234b5a1d71dea9ccd"
+  },
+  "account_id": 5,
+  "first_name": "Natalie",
+  "last_name": "Washington",
+  "email": "nwashington@gmail.com",
+  "location": {
+    "country": "Canada",
+    "province": "Ontario",
+    "city": "North York"
+  },
+  "education": [
+    {
+      "school_name": "Toronto University",
+      "major": "Computer Science",
+      "enroll_date": "2016-09-03",
+      "graduate_date": "2020-04-22"
+    }
+  ]
+},{
+  "_id": {
+    "$oid": "636c142234b5a1d71dea9cce"
+  },
+  "account_id": 6,
+  "first_name": "Stephanie",
+  "last_name": "Richmond",
+  "email": "srichmond@gmail.com",
+  "location": {
+    "country": "Canada",
+    "province": "Ontario",
+    "city": "North York"
+  },
+  "education": [
+    {
+      "school_name": "Seneca College",
+      "major": "Liberal Arts",
+      "enroll_date": "2020-09-05",
+      "graduate_date": "2021-08-15"
+    },
+    {
+      "school_name": "York University",
+      "major": "Computer Science",
+      "enroll_date": "2022-09-06",
+      "graduate_date": ""
+    }
+  ]
+},{
+  "_id": {
+    "$oid": "636c142234b5a1d71dea9ccf"
+  },
+  "account_id": 7,
+  "first_name": "Terri",
+  "last_name": "Parker",
+  "email": "tparker@gmail.com",
+  "location": {
+    "country": "Canada",
+    "province": "Ontario",
+    "city": "Ottawa"
+  },
+  "education": [
+    {
+      "school_name": "Ottawa University",
+      "major": "Finance",
+      "enroll_date": "2020-09-03",
+      "graduate_date": ""
+    }
+  ]
+},{
+  "_id": {
+    "$oid": "636c142234b5a1d71dea9cd0"
+  },
+  "account_id": 8,
+  "first_name": "John",
+  "last_name": "Ball",
+  "email": "jball@gmail.com",
+  "location": {
+    "country": "Canada",
+    "province": "Ontario",
+    "city": "Ottawa"
+  },
+  "education": [
+    {
+      "school_name": "Ottawa University",
+      "major": "Finance",
+      "enroll_date": "2022-09-06",
+      "graduate_date": ""
+    }
+  ]
+},{
+  "_id": {
+    "$oid": "636c142234b5a1d71dea9cd1"
+  },
+  "account_id": 9,
+  "first_name": "Kristie",
+  "last_name": "Osborne",
+  "email": "kosborne@gmail.com",
+  "location": {
+    "country": "Canada",
+    "province": "Ontario",
+    "city": "Mississauga"
+  },
+  "education": [
+    {
+      "school_name": "Toronto University",
+      "major": "Computer Science",
+      "enroll_date": "2010-09-03",
+      "graduate_date": "2014-04-22"
+    }
+  ]
+},{
+  "_id": {
+    "$oid": "636c142234b5a1d71dea9cd2"
+  },
+  "account_id": 10,
+  "first_name": "Paris",
+  "last_name": "Byrd",
+  "email": "pbyrd@gmail.com",
+  "location": {
+    "country": "Canada",
+    "province": "Ontario",
+    "city": "North York"
+  },
+  "education": [
+    {
+      "school_name": "York University",
+      "major": "Computer Science",
+      "enroll_date": "2012-09-03",
+      "graduate_date": "2016-04-22"
+    }
+  ]
+},{
+  "_id": {
+    "$oid": "636c142234b5a1d71dea9cd3"
+  },
+  "account_id": 11,
+  "first_name": "Alec",
+  "last_name": "Underwood",
+  "email": "aunderwood@gmail.com",
+  "location": {
+    "country": "Canada",
+    "province": "Ontario",
+    "city": "North York"
+  },
+  "education": [
+    {
+      "school_name": "Toronto University",
+      "major": "Finance",
+      "enroll_date": "2007-09-01",
+      "graduate_date": "2011-04-24"
+    }
+  ]
+},{
+  "_id": {
+    "$oid": "636c142234b5a1d71dea9cd4"
+  },
+  "account_id": 12,
+  "first_name": "Norbert",
+  "last_name": "Patel",
+  "email": "npatel@gmail.com",
+  "location": {
+    "country": "America",
+    "province": "California",
+    "city": "Los Angeles"
+  },
+  "education": [
+    {
+      "school_name": "University of Southern California",
+      "major": "Data Science",
+      "enroll_date": "2008-09-01",
+      "graduate_date": "2012-04-30"
+    }
+  ]
+},{
+  "_id": {
+    "$oid": "636c142234b5a1d71dea9cd5"
+  },
+  "account_id": 13,
+  "first_name": "Sandy",
+  "last_name": "Mcbride",
+  "email": "smcbride@gmail.com",
+  "location": {
+    "country": "America",
+    "province": "Florida",
+    "city": " Jacksonville"
+  },
+  "education": [
+    {
+      "school_name": "Toronto University",
+      "major": "Finance",
+      "enroll_date": "2000-09-03",
+      "graduate_date": "2004-04-22"
+    }
+  ]
+}]
