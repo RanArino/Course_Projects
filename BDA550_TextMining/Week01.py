@@ -1,6 +1,3 @@
-#####   Class   #####
-"""
-
 import nltk
 # nltk.download()
 # load all items from NLTK book module
@@ -39,42 +36,3 @@ sorted(long_words)
 
 # collection: a sequence of words that occur together unusually often
 list(bigrams(['more', 'is', 'said', 'than', 'done']))
-
-"""
-
-
-#####   Workshop   #####
-from nltk.book import FreqDist
-from nltk.corpus import names
-male_names = names.words('male.txt')
-female_names = names.words('female.txt')
-
-# Check name list for both male and female
-#print("Lists of Names: ")
-#print("Males: ", male_names[:10])
-#print("Females: ", female_names[:10])
-#print('')
-
-# Create lists of initial latter for both male and female
-male_initL = [name[0] for name in male_names]
-female_initL = [name[0] for name in female_names]
-#print("Lists of Initial Latters: ")
-#print("Males: ", male_initL[:10])
-#print("Females: ", female_initL[:10])
-#print('')
-
-# Define frequent distribution for each gender's initial latter
-fdist_male = FreqDist(male_initL)
-fdist_female = FreqDist(female_initL)
-
-# Show the most frequent initial latter for each gender
-print('')
-print("Question 01:")
-print("Most frequent initial latter: ")
-# Print the table
-print(f'{"":<10}{"":<10}{"Latter":<10}{"Count":<10}')
-print(f'{"Male":<10}{"":<10}{fdist_male.most_common(1)[0][0]:<10}{fdist_male.most_common(1)[0][1]:<10}')
-print(f'{"Female":<10}{"":<10}{fdist_female.most_common(1)[0][0]:<10}{fdist_female.most_common(1)[0][1]:<10}')
-print('')
-
-
