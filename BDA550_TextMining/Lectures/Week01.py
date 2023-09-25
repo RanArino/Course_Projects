@@ -1,7 +1,7 @@
 import nltk
 # nltk.download()
 # load all items from NLTK book module
-from nltk.book import *
+from nltk.book import * # type: ignore
 
 print(text1)
 print(text2)
@@ -24,14 +24,14 @@ text4.dispersion_plot(["citizens", "democracy", "freedom", "duties", "America"])
 text3.generate()
 
 # lexical diversity of text3
-len(set(text3)) / len(text3)
+len(set(text3)) / len(text3) # type: ignore
 
 # frequency distribution: frequency of each vocabulary item in the text
 fdist1 = FreqDist(text1)
 fdist1.most_common(50)
 
 # focusing on long word; should be more characteristics and informative
-long_words = [w for w in set(text1) if len(w) > 15]
+long_words = [w for w in set(text1) if len(w) > 15] # type: ignore
 sorted(long_words)
 
 # collection: a sequence of words that occur together unusually often
