@@ -1,1 +1,1 @@
-This is an example text file for the workship 02 in the Text Mining course - BDM550.
+John Doe, the CEO of Acme Corporation, announced on January 1, 2023, that the company had a record-breaking year with profits exceeding $1 million! He said, ‘We’re thrilled with our performance and can’t wait to see what 2023 brings.’ Meanwhile, Jane Smith, the CFO, cautioned, ‘While we’re proud of our results, we must continue to invest wisely for our future.
