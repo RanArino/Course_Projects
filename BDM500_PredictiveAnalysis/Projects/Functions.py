@@ -210,7 +210,7 @@ def evaluation(t, X, y, theta, y_hats, sigma):
     #  sum of square total
     sst = np.sum((y[t:] - y_mean)**2)
     #  define feature matrix and target based on "t"
-    X_, y_ = np.insert(X[t:], 0, 1, axis=1), y[t:]
+    X_, y_ = np.insert(X[t:n+t], 0, 1, axis=1), y[t:]
 
     #  number of coefficients
     for i in range(k+1):
