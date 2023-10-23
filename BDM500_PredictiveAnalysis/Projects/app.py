@@ -18,6 +18,7 @@ app = Dash(external_stylesheets=[dbc.themes.DARKLY])
 
 app.layout = dbc.Container([
     app_design.header(), 
+    app_design.overview(),
 ], fluid=True)
 
 if __name__ == "__main__":
