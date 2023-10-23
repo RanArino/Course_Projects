@@ -1,13 +1,14 @@
 from dash import Dash, dash_table
 import dash_bootstrap_components as dbc
 
+import os
 import numpy as np
 import pandas as pd
 
 import app_design
 
 # import the dataset from csv file
-df = pd.read_csv('original.csv')
+df = pd.read_csv("./original.csv")
 
 app = Dash(external_stylesheets=[dbc.themes.DARKLY])
 
