@@ -155,12 +155,12 @@ def batch_learning(t, X, y, labmda_=0.5):
         - Calculate the difference between actual and predicted values; "sigma"
     """
     # define all matrix to be returned
-    theta = np.zeros((len(X)-t + 1, 6))
-    y_hats = np.zeros((len(X)-t, 1))
-    sigma = np.zeros((len(X)-t, 1))
+    theta = np.zeros((len(y)-t + 1, 6))
+    y_hats = np.zeros((len(y)-t, 1))
+    sigma = np.zeros((len(y)-t, 1))
 
     # batch learning
-    for i, idx in enumerate(range(t, len(X))):
+    for i, idx in enumerate(range(t, len(y))):
         # get the recent "t" months data (X_i includes bias)
         X_i, y_i = np.insert(X[i:idx], 0, 1, axis=1) , y[i:idx]
         # fit the training data (normal equation form)
