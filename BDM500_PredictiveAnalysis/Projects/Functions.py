@@ -82,6 +82,133 @@ class Standardization:
 
         return new_features
     
+def gradient_descent(X, y, t, b, alpha=0.01, lambda_=0.5):
+    """
+    Return the following three matrix (dtype: np.array)
+    - "theta"  -> parameters (intercept + coefficients) at each step
+    - "y_hats" -> predicted values at each step
+    - "sigma"  -> prediction errors (actual - predicted values); SSE
+
+    Parameters:
+    - "X": np.array -> independent variables
+    - "y": np.array -> target variables
+    - "t": int -> number of data that were used for the initial parameter creation.
+    - "b": int -> mini-batch sizes(b <= t) 
+    - "alpha": learning rate for gradient descent
+    - "lambda_": hyperparameter for the elastic net regularization.
+
+    Brief Steps:
+    - Initialize matries for theta, y_hats, sigma.
+    - Apply a given number of data ("t") to the mutiple linear regression (normal equation).
+    - Define the initial parameters from the trained model.
+    - At each step (total steps are len(y) - t):
+        - Get a single pair of unfamilar data; both X and y.
+        - Predict the target ("y_hats") based on the latest parameters("theta[i]").
+        - Calculate the difference between actual and predicted values; "sigma[i]".
+        - Update parameters for the next step ("theta[i+1]") by a given number of the errors;
+           if b=10, recalculating the predicted error based on the theta[i] and the latest 10 data.
+    """
+    # define all matrix to be returned
+    theta = np.zeros((len(y)-t + 1, 6))
+    y_hats = np.zeros((len(y)-t, 1))
+    sigma = np.zeros((len(y)-t, 1))
+    # Modify the matrix of features; adding bias 
+    X = np.insert(X[:], 0, 1, axis=1)
+    
+    # initial training
+    init_X, init_y = X[0:t], y[0:t]
+    # obtain the initial parameters based on normal equation form
+    theta[0] = np.linalg.inv(init_X.T.dot(init_X)).dot(init_X.T).dot(init_y).reshape(1,-1)
+    
+    # incremental learnings
+    for i, idx in enumerate(range(t, len(y))):
+        # get new data (X_i includes bias)
+        X_i, y_i = X[idx] , y[idx]
+        # predicted variable
+        y_hats[i] = np.dot(X_i, theta[i])
+        # predicted error
+        sigma[i] =  (y_hats[i] - y_i)
+        # given number of predicted errros based on the current parameters
+        if b > 1:
+            # the given number (batch size; "b") of the latest X and y
+            X_b, y_b = X[idx-b+1:idx+1], y[idx-b+1:idx+1]  
+            # predicted error in the latest number "b" of data based on current parameters
+            sigmas = np.dot(X_b, theta[i].reshape(-1, 1)) - y_b
+            # calculate the mean of error weighted features (ewf_mu)
+            ewf_mu = np.mean(X_b * sigmas, axis=0)
+
+        else:
+            # if batch size is 1, just consider a predicted error based on the most recent data
+            ewf_mu = X_i * sigma[i]
+        
+        # get the partial derivative 
+        # pd = 2 / b * np.
+        # the gradient of the loss function with respect to the new observation 
+        gradient = 2 * (ewf_mu + (lambda_*alpha*np.sign(theta[i]) + 2*(1-lambda_)*alpha*theta[i]))
+        # update all parameters by stochastic gradient descent
+        theta[i+1] = theta[i] - alpha * gradient
+
+    return theta, y_hats, sigma
+
+def evaluation(X, y, t, theta, y_hats, sigma):
+    """
+    Return the data frame; the following measureas by brackward eliminations:
+    - Root Mean Square Error (rmse)
+    - Standatd Error of Estimate (se)
+    - Coefficient of Determination (r2)
+    - Adjusted Coefficient of Determination (adj_r2)
+
+    Parameters:
+    - "t": number of months that were used for the initial training data.
+    - "X": independent variables
+    - "y": the actual target value (whole period)
+    - "theta": all parameters (intercept & coefficients) at each step
+    - "y_hats": the predicted target value at each step
+    - "sigma": difference between actual and predicted values at each step
+
+    Requirement: len(y[t:]) == len(y_hats)
+    """
+    # (0): Define Variables
+    #  number of observations and features (excluding bias)
+    n, k = len(y_hats), len(theta[0]) - 1
+    #  measures matrix
+    mm = np.zeros((k+1, 4))
+    # assign the data frame index and columns
+    rows = ['original'] + [f'theta{i+1}=0' for i in range(k)]
+    cols = ['rmse', 'se', 'r2', 'adj_r2']
+    #  mean of actual "y" over the "t" months
+    #y_mean = np.array([y[i:i+t].mean() for i in range(len(y)-t)]).reshape(-1, 1)
+    y_mean = np.mean(y[t:])
+    #  sum of square total
+    sst = np.sum((y[t:] - y_mean)**2)
+    #  define feature matrix and target based on "t"
+    X_, y_ = np.insert(X[t:n+t], 0, 1, axis=1), y[t:]
+
+    #  number of coefficients
+    for i in range(k+1):
+        # simply applying the given sigma
+        if i == 0:
+            sigma_ = sigma
+        # conduct the backward elimination
+        else:
+            # copy the parameters matrix
+            theta_ = theta[:n].copy()
+            # change a particular coefficient to 0 arbitrarily.
+            theta_[:, i] = 0
+            # based on revised parameters, get the predicted value
+            y_hats_ = np.sum(X_ * theta_, axis=1).reshape(-1, 1)
+            # predicted error
+            sigma_ = y_ - y_hats_    
+    
+        # Calculate Measures (rmse, se, r2, adj_r2, in order)
+        sse = np.sum(sigma_**2)
+        mm[i, 0] = np.sqrt((sigma_**2).mean()) 
+        mm[i, 1] = np.sqrt(sse / (n - k - 1))
+        mm[i, 2] = 1 - sse/sst
+        mm[i, 3] = 1 - (sse/(n - k -1))/(sst/(n-1))
+         
+    return pd.DataFrame(data=mm, index=rows, columns=cols)
+
 
 def online_learning(t, X, y, alpha=0.01, lambda_=0.5):
     """
@@ -177,62 +304,3 @@ def batch_learning(t, X, y, labmda_=0.5):
     theta[last-t] = np.linalg.inv(X_i.T.dot(X_i)).dot(X_i.T).dot(y_i).reshape(1,-1)
 
     return theta, y_hats, sigma
-
-def evaluation(X, y, t, theta, y_hats, sigma):
-    """
-    Return the data frame; the following measureas by brackward eliminations:
-    - Root Mean Square Error (rmse)
-    - Standatd Error of Estimate (se)
-    - Coefficient of Determination (r2)
-    - Adjusted Coefficient of Determination (adj_r2)
-
-    Parameters:
-    - "t": number of months that were used for the initial training data.
-    - "X": independent variables
-    - "y": the actual target value (whole period)
-    - "theta": all parameters (intercept & coefficients) at each step
-    - "y_hats": the predicted target value at each step
-    - "sigma": difference between actual and predicted values at each step
-
-    Requirement: len(y[t:]) == len(y_hats)
-    """
-    # (0): Define Variables
-    #  number of observations and features (excluding bias)
-    n, k = len(y_hats), len(theta[0]) - 1
-    #  measures matrix
-    mm = np.zeros((k+1, 4))
-    # assign the data frame index and columns
-    rows = ['original'] + [f'theta{i+1}=0' for i in range(k)]
-    cols = ['rmse', 'se', 'r2', 'adj_r2']
-    #  mean of actual "y" over the "t" months
-    #y_mean = np.array([y[i:i+t].mean() for i in range(len(y)-t)]).reshape(-1, 1)
-    y_mean = np.mean(y[t:])
-    #  sum of square total
-    sst = np.sum((y[t:] - y_mean)**2)
-    #  define feature matrix and target based on "t"
-    X_, y_ = np.insert(X[t:n+t], 0, 1, axis=1), y[t:]
-
-    #  number of coefficients
-    for i in range(k+1):
-        # simply applying the given sigma
-        if i == 0:
-            sigma_ = sigma
-        # conduct the backward elimination
-        else:
-            # copy the parameters matrix
-            theta_ = theta[:n].copy()
-            # change a particular coefficient to 0 arbitrarily.
-            theta_[:, i] = 0
-            # based on revised parameters, get the predicted value
-            y_hats_ = np.sum(X_ * theta_, axis=1).reshape(-1, 1)
-            # predicted error
-            sigma_ = y_ - y_hats_    
-    
-        # Calculate Measures (rmse, se, r2, adj_r2, in order)
-        sse = np.sum(sigma_**2)
-        mm[i, 0] = np.sqrt((sigma_**2).mean()) 
-        mm[i, 1] = np.sqrt(sse / (n - k - 1))
-        mm[i, 2] = 1 - sse/sst
-        mm[i, 3] = 1 - (sse/(n - k -1))/(sst/(n-1))
-         
-    return pd.DataFrame(data=mm, index=rows, columns=cols)
