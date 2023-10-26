@@ -178,7 +178,7 @@ def batch_learning(t, X, y, labmda_=0.5):
 
     return theta, y_hats, sigma
 
-def evaluation(t, X, y, theta, y_hats, sigma):
+def evaluation(X, y, t, theta, y_hats, sigma):
     """
     Return the data frame; the following measureas by brackward eliminations:
     - Root Mean Square Error (rmse)
