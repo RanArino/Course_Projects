@@ -87,6 +87,7 @@ class Standardization:
 
         return new_features
     
+
 class Regression:
     def __init__(self, df: pd.DataFrame):
         self.df = df
@@ -127,15 +128,15 @@ class Regression:
         self.fp_opts = fp
 
         # start creating data
-        y = np.array(self.df[y_n])
+        y_origin = np.array(self.df[[y_n]])
         for ma_i in self.ma_opts:
             # apply moving averages (ma is 0 or 1 -> no moving averages)
             if ma_i < 2:
-                y_ma_i = self.df[y_n]
+                y_ma_i = y_origin
                 ma_i = 0
             else:
                 #X_ma = np.array([np.mean(X[i-ma:i], axis=0) for i in range(ma, len(X))])
-                y_ma_i = np.array([np.mean(y[i-ma_i:i], axis=0) for i in range(ma_i, len(y))])
+                y_ma_i = np.array([np.mean(y_origin[i-ma_i:i], axis=0) for i in range(ma_i, len(y_origin))])
             
             # apply polynomial
             self.poly = PolynomialFeatures(degree=poly_d, include_bias=True)
@@ -468,8 +469,8 @@ class Regression:
                 rmse_dict['scope'] += [key] * (n)
                 r2_dict['scope'] += [key] * (n)
                 # add theta name
-                rmse_dict['theta'] += self.X_name
-                r2_dict['theta'] += self.X_name
+                rmse_dict['theta'] += list(self.X_name[1:])
+                r2_dict['theta'] += list(self.X_name[1:])
                 # first column is RMSE and last one is adjusted R2
                 diff = matrix[1:] - matrix[0]
                 # add error
