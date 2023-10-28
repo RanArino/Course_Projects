@@ -100,7 +100,7 @@ class Regression:
 
         self.scopes = []
         self.results = {}
-        self.be_test = {}
+        self.be_tests = {'ma': {}, 'sc': {}}
         self.perf_df = pd.DataFrame(data=[], columns=['SC', 'MA', 'FP', 'RMSE', 'SE', 'R2', 'Adj-R2'])
 
         # initialize class
@@ -128,15 +128,15 @@ class Regression:
         self.fp_opts = fp
 
         # start creating data
-        y_origin = np.array(self.df[[y_n]])
+        y = np.array(self.df[[y_n]])
         for ma_i in self.ma_opts:
             # apply moving averages (ma is 0 or 1 -> no moving averages)
             if ma_i < 2:
-                y_ma_i = y_origin
-                ma_i = 0
+                y_ma_i = y
+                ma_i = 1
             else:
-                #X_ma = np.array([np.mean(X[i-ma:i], axis=0) for i in range(ma, len(X))])
-                y_ma_i = np.array([np.mean(y_origin[i-ma_i:i], axis=0) for i in range(ma_i, len(y_origin))])
+                #X_ma_i = np.array([np.mean(X[i-ma_i:i], axis=0) for i in range(ma_i, len(X))])
+                y_ma_i = np.array([np.mean(y[i-ma_i:i], axis=0) for i in range(ma_i, len(y))])
             
             # apply polynomial
             self.poly = PolynomialFeatures(degree=poly_d, include_bias=True)
@@ -155,17 +155,23 @@ class Regression:
                 self.datasets.update({f"{ma_i}MA_{fp_i}M": {'X': X_ss_b, 'y': y_ma_i[fp_i:]}})
 
 
-    def model_result(self, scopes: list, model_name: str = '', eta: float = 0.01, alpha: float = 1., lambda_: float = 0.5):
+    def model_result(self, scopes: list, model_name: str = '', eta: float = 0.01, alpha: float = 1.0, lambda_: float = 0.5):
+        # set spaces
+        self.be_tests['ma'].update({ma: [] for ma in self.ma_opts})
+        
         for i, s in enumerate(scopes):
             # set spaces
             self.results[s] = {}
-            self.be_test[s] = []
+            self.be_tests['sc'].update({s: []})
 
             # each dataset
             for j, d_key in enumerate(self.datasets.keys()):
                 idx = i * len(self.datasets.keys()) + j
                 data = self.datasets[d_key]
-                theta, y_hat, error = self.gradient_descent(X=data['X'], y=data['y'], t=120, s=s)
+                theta, y_hat, error = self.gradient_descent(
+                    X=data['X'], y=data['y'], t=120, s=s, 
+                    eta=eta, alpha=alpha, lambda_=lambda_
+                )
                 # store all data
                 self.results[s].update({d_key: {'theta': theta, 'y_hat': y_hat, 'error': error}})
                 # get test result of backward elimination
@@ -175,12 +181,18 @@ class Regression:
                 ma_int = int(re.findall(r'\d+', ma)[0])
                 self.perf_df.loc[idx] = [s, ma_int, fp] + list(be_test_df.iloc[0])
                 # store its result as NDArray
-                self.be_test[s].append(np.array(be_test_df))
+                self.be_tests['sc'][s].append(np.array(be_test_df))
+                ma_idx = self.ma_opts[j // len(self.fp_opts)]
+                self.be_tests['ma'][ma_idx].append(np.array(be_test_df))
+
         
         self.compere_perf_fig = self.compare_perf(model_name)
-        self.be_test_fig = self.backward_elimination()
+        self.be_test_sc_fig = self.backward_elimination('sc')
+        self.be_test_ma_fig = self.backward_elimination('ma')
 
-        return self.compere_perf_fig, self.be_test_fig
+        return self.compere_perf_fig, self.be_test_sc_fig, self.be_test_ma_fig
+
+
 
 
     def detail_perf(self, ma: int, fp: int, sc: int):
@@ -214,7 +226,12 @@ class Regression:
         if fp > 0:
             y, m = x_date[-1].year, x_date[-1].month - 1
             months = [(i % 12) + 1 for i in range(m, m+fp+1)]
-            add_on = [str(pd.Timestamp(y, month, 1) + pd.offsets.MonthEnd(1)).split()[0] for month in months]
+            add_on = []
+            for i, month in enumerate(months):
+                # update the year
+                if i != 1 and month == 1:
+                    y += 1
+                add_on.append(str(pd.Timestamp(y, month, 1) + pd.offsets.MonthEnd(1)).split()[0])
             new_X = data['X'][num_obs:]
             future = np.dot(new_X, theta[-1].reshape(-1,1)).flatten()
             fig1.add_trace(go.Scatter(
@@ -261,7 +278,7 @@ class Regression:
         return fig1, fig2
 
 
-    def gradient_descent(self, X, y, t, s, eta=0.01, alpha=1, lambda_=0.5):
+    def gradient_descent(self, X, y, t, s, eta=0.01, alpha=1.0, lambda_=0.5):
         """
         Return the following three matrix (dtype: np.array)
         - "theta"  -> parameters (intercept + coefficients) at each step
@@ -289,7 +306,8 @@ class Regression:
         """
 
         # define all matrix to be returned
-        theta = np.zeros((len(y)-t + 1, 6))
+        k = len(self.X_name) # num of features + bias
+        theta = np.zeros((len(y)-t + 1, k))
         y_hats = np.zeros((len(y)-t, 1))
         error = np.zeros((len(y)-t, 1))
         # Modify the matrix of features; adding bias
@@ -361,7 +379,6 @@ class Regression:
             rows = ['original'] + [f'theta{i+1}=0' for i in range(k)]
             cols = ['rmse', 'se', 'r2', 'adj_r2']
             #  mean of actual "y" over the "t" months
-            #y_mean = np.array([y[i:i+t].mean() for i in range(len(y)-t)]).reshape(-1, 1)
             y_mean = np.mean(y[t:])
             #  sum of square total
             sst = np.sum((y[t:] - y_mean)**2)
@@ -445,7 +462,7 @@ class Regression:
 
         # edit layput
         fig.update_xaxes(title_text='Moving Averages', row=2)
-        fig.update_layout(height=600, width=800, template='plotly_dark', 
+        fig.update_layout(height=500, width=800, template='plotly_dark', 
                         title=dict(text=main_title + sub_title1 + sub_title2,  yanchor="top", y=0.95),
                         legend=dict(title_text='Scopes', title_font={'color':'lightgrey'}),
                         margin=go.layout.Margin(t=100, l=40, r=40))
@@ -453,21 +470,25 @@ class Regression:
         return fig
 
 
-    def backward_elimination(self):
+    def backward_elimination(self, type_: str):
         """
         Evaluate the backward elimination for all models with focus on RMSE and adjusted R2.
         Visualize the scatter plots to show the difference from original result
+
+        Parameter:
+        - 'type': either one of 'sc' or 'ma'
         """
+        be_test = self.be_tests[type_]
         # number of features; excluding bias term
         n = len(self.X_name) - 1
-        rmse_dict = {'scope': [], 'theta': [], 'diff': []}
-        r2_dict = {'scope': [], 'theta': [], 'diff': []}
+        rmse_dict = {type_: [], 'theta': [], 'diff': []}
+        r2_dict = {type_: [], 'theta': [], 'diff': []}
 
-        for key in self.be_test:
-            for matrix in self.be_test[key]:
+        for key in be_test:
+            for matrix in be_test[key]:
                 # learning method
-                rmse_dict['scope'] += [key] * (n)
-                r2_dict['scope'] += [key] * (n)
+                rmse_dict[type_] += [key] * (n)
+                r2_dict[type_] += [key] * (n)
                 # add theta name
                 rmse_dict['theta'] += list(self.X_name[1:])
                 r2_dict['theta'] += list(self.X_name[1:])
@@ -481,8 +502,8 @@ class Regression:
         # plot data points
         rmse_df = pd.DataFrame(rmse_dict)
         r2_df = pd.DataFrame(r2_dict)
-        fig1 = px.strip(data_frame=rmse_df, x='theta', y='diff', color='scope')
-        fig2 = px.strip(data_frame=r2_df, x='theta', y='diff', color='scope')
+        fig1 = px.strip(data_frame=rmse_df, x='theta', y='diff', color=type_)
+        fig2 = px.strip(data_frame=r2_df, x='theta', y='diff', color=type_)
 
         # set figure
         fig = make_subplots(rows=1, cols=2, subplot_titles=["RMSE", "Adj-R2"])
@@ -491,7 +512,7 @@ class Regression:
         fig.layout.annotations[1].update(y=0.95, font=dict(size=11, color='grey'))
 
         # add the trace objects to the subplots
-        for fig_loc in range(len(self.be_test.keys())):
+        for fig_loc in range(len(be_test.keys())):
             # add figure data one by one
             fig.add_trace(fig1.data[fig_loc], row=1, col=1)
             # remove duplicated legend
@@ -501,11 +522,12 @@ class Regression:
         fig.update_traces(marker=dict(opacity=0.5, size=5))
 
         # add layout
-        main = "Observe Backward Elimination in All Models" 
+        be_type = 'Scopes' if type_ == 'sc' else 'Moving Averages'
+        main = f"Observe Backward Elimination in All Models With Repect to {be_type}" 
         sub = f"<br><span {self.SUB_CSS}> -- How meansures are changed by removing the impact of each coefficient</span>"
         fig.update_layout(height=400, width=800, template='plotly_dark', 
                         title_text=main + sub, yaxis_title="Difference",
-                        legend=dict(title_text='Scopes:', orientation="h", yanchor="top", y=-0.1, xanchor="center", x=0.5),
+                        legend=dict(title_text=f'{be_type}:', orientation="h", yanchor="top", y=-0.1, xanchor="center", x=0.5),
                         margin=go.layout.Margin(t=80, b=60, l=80, r=40))
     
         return fig
