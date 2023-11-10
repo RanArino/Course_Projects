@@ -88,7 +88,7 @@ class Standardization:
         return new_features
     
 
-class Regression:
+class PredictiveAnalysis:
     def __init__(self, df: pd.DataFrame):
         self.df = df
         # initialize other variables
@@ -152,10 +152,12 @@ class Regression:
 
             # apply data shift
             for fp_i in self.fp_opts:
-                self.datasets.update({f"{ma_i}MA_{fp_i}M": {'X': X_ss_b, 'y': y_ma_i[fp_i:]}})
+                self.datasets.update({
+                    f"{ma_i}MA_{fp_i}M": {'X': X_ss_b, 'y': y_ma_i[fp_i:], 'y_cat': np.where(y_ma_i[fp_i:]>0, 1, 0)}
+                })
 
 
-    def model_result(self, scopes: list, model_name: str = '', eta: float = 0.01, alpha: float = 1.0, lambda_: float = 0.5):
+    def linear_reg(self, scopes: list, model_name: str = '', eta: float = 0.01, alpha: float = 1.0, lambda_: float = 0.5):
         # set spaces
         self.be_tests['ma'].update({ma: [] for ma in self.ma_opts})
         
@@ -186,7 +188,7 @@ class Regression:
                 self.be_tests['ma'][ma_idx].append(np.array(be_test_df))
 
         
-        self.compere_perf_fig = self.compare_perf(model_name)
+        self.compere_perf_fig = self.compare_perf(len(scopes), model_name)
         self.be_test_sc_fig = self.backward_elimination('sc')
         self.be_test_ma_fig = self.backward_elimination('ma')
 
@@ -411,14 +413,14 @@ class Regression:
             return pd.DataFrame(data=mm, index=rows, columns=cols)
 
 
-    def compare_perf(self, model_name: str = ''):
+    def compare_perf(self, scope_num: int, model_name: str = ''):
         """
         Comparing the performance of linear regression models.
 
         Return: plotly.graph_objs._figure.Figure
 
         Parameters:
-        - "perf_df": keys show each model; values show pd.DataFrame.
+        - "scope-num": the number of user-given scopes
         - "model_name": model name to show it on the figure title
         """
         # define customer function
@@ -451,7 +453,7 @@ class Regression:
                 error_y=f'{ms}_upper_error', error_y_minus=f'{ms}_lower_error'
             )
             # add each data
-            for f_data in fig_data.data[:4]:
+            for f_data in fig_data.data[:scope_num]:
                 # remove duplicated legends
                 f_data.showlegend = True if i == 0 else False
                 fig.add_trace(f_data, row=r+1, col=c+1)
