@@ -8,6 +8,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from sklearn.preprocessing import PolynomialFeatures
+from sklearn.metrics import accuracy_score, confusion_matrix
 
 
 class Standardization:
@@ -96,6 +97,7 @@ class PredictiveAnalysis:
         self.y_name = ''
         self.ma_opts = []
         self.fp_opts = []
+        self.sc_opts = []
         self.datasets = {}
 
         # initialize hyperparameters
@@ -105,10 +107,14 @@ class PredictiveAnalysis:
         self.iter_ = 0
         
         # set variables for model evaluation
-        self.results = {model: {} for model in ['Linear_Reg', 'Logistic_Reg', 'CART']}  # theta, y_hat, sigma for each scope and dataset
-        self.futures = {model: {} for model in ['Linear_Reg', 'Logistic_Reg', 'CART']}  # predicted values for each 'fp'
-        self.be_tests = {model: {'ma': {}, 'sc': {}} for model in ['Linear_Reg', 'Logistic_Reg', 'CART']}  # backward elimination test results
-        self.perf_df = {model: pd.DataFrame(data=[], columns=['SC', 'MA', 'FP', 'RMSE', 'SE', 'R2', 'Adj-R2']) for model in ['Linear_Reg', 'Logistic_Reg', 'CART']}
+        self.results = {model: {} for model in ['LinR', 'LogR', 'CART']}  # theta, y_hat, sigma for each scope and dataset
+        self.futures = {model: {} for model in ['LinR', 'LogR', 'CART']}  # predicted values for each 'fp'
+        self.be_tests = {model: {'ma': {}, 'sc': {}} for model in ['LinR', 'LogR', 'CART']}  # backward elimination test results
+        self.perf_df = {model: pd.DataFrame(data=[], columns=['SC', 'MA', 'FP', 'RMSE', 'SE', 'R2', 'Adj-R2']) for model in ['LinR', 'LogR', 'CART']}
+        self.perf_df = {'LinR': pd.DataFrame(data=[], columns=['SC', 'MA', 'FP', 'RMSE', 'SE', 'R2', 'Adj-R2']),
+                        'LogR': pd.DataFrame(data=[], columns=['SC', 'MA', 'FP', 'ACC', 'PRE', 'REC' 'F1', 'ROC', 'AUC']),
+                        'CART': pd.DataFrame(data=[], columns=['SC', 'MA', 'FP', 'RMSE', 'SE', 'R2', 'Adj-R2'])}
+
 
         # initialize class
         self.poly = None
@@ -133,7 +139,7 @@ class PredictiveAnalysis:
         self.y_name = y_n
         self.ma_opts = ma
         self.fp_opts = fp
-        self.results = {model: {f'{i}FP': {} for i in fp} for model in ['Linear_Reg', 'Logistic_Reg', 'CART']}
+        self.results = {model: {f'{i}FP': {} for i in fp} for model in ['LinR', 'LogR', 'CART']}
 
         # start creating data
         y = np.array(self.df[[y_n]])
@@ -171,6 +177,9 @@ class PredictiveAnalysis:
         
 
         """
+        # define variable
+        self.sc_opts = scopes
+
         # set hyperparameters globally
         self.eta_ = eta_
         self.alpha_ = alpha_
@@ -189,17 +198,17 @@ class PredictiveAnalysis:
             for j, d_key in enumerate(self.datasets.keys()):
                 # acquire data
                 data = self.datasets[d_key]
-                if model == 'Linear_Reg':
+                if model == 'LinR':
                     theta, y_hat, error, future = self.linear_reg(X=data['X'], y=data['y'], t=120, sc=sc)
 
-                elif model == 'Logistic_Reg':
+                elif model == 'LogR':
                     theta, y_hat, error, future = self.logistic_reg(X=data['X'], y=data['y'], t=120, sc=sc)
 
                 elif model == 'CART':
                     theta, y_hat, error, future = None, None, None, None
 
                 else:
-                    raise TypeError('Choose one of following model names: "Linear_Reg", "Logistic_Reg", and "CART".')
+                    raise TypeError('Choose one of following model names: "LinR", "LogR", and "CART".')
                 
                 # get moving average and future performance values from dataset keys
                 ma, fp = d_key.split('_')
@@ -242,7 +251,7 @@ class PredictiveAnalysis:
         # get model and data
         d_name = f'{ma}MA_{fp}FP'
         data = self.datasets[d_name]
-        theta, y_hat, error = tuple(result[f'{fp}FP'][f'{ma}MA_{sc}SC'].values())
+        _, y_hat, error = tuple(result[f'{fp}FP'][f'{ma}MA_{sc}SC'].values())
         
         # number of observations
         num_obs = len(y_hat)
@@ -257,22 +266,23 @@ class PredictiveAnalysis:
         fig1.add_trace(go.Scatter(x=x_date, y=predict, mode='lines', name='Predict',
                                 line=dict(color='lightgreen')))
 
-        # future value
-        if fp > 0:
-            y, m = x_date[-1].year, x_date[-1].month - 1
-            months = [(i % 12) + 1 for i in range(m, m+fp+1)]
-            add_on = []
-            for i, month in enumerate(months):
-                # update the year
-                if i != 1 and month == 1:
-                    y += 1
-                add_on.append(str(pd.Timestamp(y, month, 1) + pd.offsets.MonthEnd(1)).split()[0])
-            new_X = data['X'][num_obs:]
-            future = np.dot(new_X, theta[-1].reshape(-1,1)).flatten()
-            fig1.add_trace(go.Scatter(
-                x=pd.to_datetime(add_on), y=np.concatenate((y_hat[-1], future)), 
-                mode='lines', name='Future', line=dict(color='lightgreen', dash='dot')
-                ))
+        # future values
+        y, m = x_date[-1].year, x_date[-1].month - 1
+        months = [(i % 12) + 1 for i in range(m, m+fp+1)]
+        add_on = []
+        for i, month in enumerate(months):
+            # update the year
+            if i != 1 and month == 1:
+                y += 1
+            add_on.append(str(pd.Timestamp(y, month, 1) + pd.offsets.MonthEnd(1)).split()[0])
+        # get the index of a scope
+        sc_idx = self.sc_opts.index(sc)
+        # get the future values
+        future_vals = self.futures[model][f'{fp}FP'][f'{ma}MA'][sc_idx]
+        fig1.add_trace(go.Scatter(
+            x=pd.to_datetime(add_on), y=np.concatenate((y_hat[-1], future_vals)), 
+            mode='lines', name='Future', line=dict(color='lightgreen', dash='dot')
+            ))
         
         # layout
         add_title = '' if fp == 0 else f' in {fp}-Month '
@@ -315,7 +325,7 @@ class PredictiveAnalysis:
 
     def linear_reg(self, X, y, t, sc):
         """
-        Return the following three matrix (dtype: np.array)
+        Return the following four matrix (dtype: np.array)
         - "thetas"  -> parameters (intercept + coefficients) at each step
         - "y_hats" -> predicted values at each step
         - "errors"  -> prediction errors (actual - predicted values); SSE
@@ -325,10 +335,7 @@ class PredictiveAnalysis:
         - "X": np.array -> independent variables
         - "y": np.array -> target variables
         - "t": int -> number of data that were used for the initial parameter creation.
-        - "s": int -> scope of the latest data for parameter updates 
-        - "eta": learning rate for gradient descent
-        - "alpha": how strength the regularization is.
-        - "lambda_": balancing between ridge and lasso regularization.
+        - "sc": int -> scope of the latest data for parameter updates
 
 
         Brief Steps:
@@ -386,9 +393,8 @@ class PredictiveAnalysis:
             # assign finialized theta
             thetas[idx+1] = theta_
 
-
         # calculate the future values
-        future = np.dot(X[len(y):], thetas[-1])
+        future = np.sum(np.multiply(X[len(y):], thetas[len(y)-t:]), axis=1)
 
         return thetas, y_hats, errors, future
 
