@@ -98,10 +98,17 @@ class PredictiveAnalysis:
         self.fp_opts = []
         self.datasets = {}
 
-        self.results = {}  # theta, y_hat, sigma for each scope and dataset
-        self.futures = {}  # predicted values for each 'fp'
-        self.be_tests = {'ma': {}, 'sc': {}}  # backward elimination test results
-        self.perf_df = pd.DataFrame(data=[], columns=['SC', 'MA', 'FP', 'RMSE', 'SE', 'R2', 'Adj-R2'])
+        # initialize hyperparameters
+        self.eta_ = 0
+        self.alpha_ = 0
+        self.lambda_ = 0
+        self.iter_ = 0
+        
+        # set variables for model evaluation
+        self.results = {model: {} for model in ['Linear_Reg', 'Logistic_Reg', 'CART']}  # theta, y_hat, sigma for each scope and dataset
+        self.futures = {model: {} for model in ['Linear_Reg', 'Logistic_Reg', 'CART']}  # predicted values for each 'fp'
+        self.be_tests = {model: {'ma': {}, 'sc': {}} for model in ['Linear_Reg', 'Logistic_Reg', 'CART']}  # backward elimination test results
+        self.perf_df = {model: pd.DataFrame(data=[], columns=['SC', 'MA', 'FP', 'RMSE', 'SE', 'R2', 'Adj-R2']) for model in ['Linear_Reg', 'Logistic_Reg', 'CART']}
 
         # initialize class
         self.poly = None
@@ -126,7 +133,7 @@ class PredictiveAnalysis:
         self.y_name = y_n
         self.ma_opts = ma
         self.fp_opts = fp
-        self.results = {f'{i}FP': {} for i in fp}
+        self.results = {model: {f'{i}FP': {} for i in fp} for model in ['Linear_Reg', 'Logistic_Reg', 'CART']}
 
         # start creating data
         y = np.array(self.df[[y_n]])
@@ -159,50 +166,68 @@ class PredictiveAnalysis:
                 })
 
 
-    def linear_reg(self, scopes: list, model_name: str = '', eta: float = 0.01, alpha: float = 1.0, lambda_: float = 0.5):
-        # set spaces
-        self.be_tests['ma'].update({ma: [] for ma in self.ma_opts})
-        # set spaces
-        self.futures = {f'{k1}FP': {f'{k2}MA': np.zeros((len(scopes), k1)) for k2 in self.ma_opts} for k1 in self.fp_opts}
+    def model_learning(self, scopes: list, model: str = '', eta_: float = 0.001, alpha_: float = 0.1, lambda_: float = 0.5, iter_: int = 100):
+        """
         
-        for i, sc in enumerate(scopes):
-            # set spaces
-            #self.results[sc] = {}
-            self.be_tests['sc'].update({sc: []})
 
+        """
+        # set hyperparameters globally
+        self.eta_ = eta_
+        self.alpha_ = alpha_
+        self.lambda_ = lambda_
+        self.iter_ = iter_
+ 
+        # set spaces
+        self.be_tests[model]['ma'].update({ma: [] for ma in self.ma_opts})
+        self.be_tests[model]['sc'].update({sc: [] for sc in scopes})
+        self.futures[model] = {f'{k1}FP': {f'{k2}MA': np.zeros((len(scopes), k1)) for k2 in self.ma_opts} for k1 in self.fp_opts}
+
+        idx = 0
+        # each scope
+        for i, sc in enumerate(scopes):
             # each dataset
             for j, d_key in enumerate(self.datasets.keys()):
-                idx = i * len(self.datasets.keys()) + j
+                # acquire data
                 data = self.datasets[d_key]
-                theta, y_hat, error, future = self.gradient_descent(
-                    X=data['X'], y=data['y'], t=120, sc=sc, 
-                    eta=eta, alpha=alpha, lambda_=lambda_
-                )
+                if model == 'Linear_Reg':
+                    theta, y_hat, error, future = self.linear_reg(X=data['X'], y=data['y'], t=120, sc=sc)
+
+                elif model == 'Logistic_Reg':
+                    theta, y_hat, error, future = self.logistic_reg(X=data['X'], y=data['y'], t=120, sc=sc)
+
+                elif model == 'CART':
+                    theta, y_hat, error, future = None, None, None, None
+
+                else:
+                    raise TypeError('Choose one of following model names: "Linear_Reg", "Logistic_Reg", and "CART".')
+                
+                # get moving average and future performance values from dataset keys
+                ma, fp = d_key.split('_')
                 # store all data
-                ma, fp = d_key.split('_')
-                self.results[fp].update({f"{ma}_{sc}SC": {'theta': theta, 'y_hat': y_hat, 'error': error}})
+                self.results[model][fp].update({f"{ma}_{sc}SC": {'theta': theta, 'y_hat': y_hat, 'error': error}})
                 # store future values
-                ma, fp = d_key.split('_')
-                self.futures[fp][ma][i] = future
+                self.futures[model][fp][ma][i] = future
                 # get test result of backward elimination
                 be_test_df = self.evaluation(data['X'], data['y'], 120, theta, y_hat, error)
                 # retrienve only performance without any changes in each coefficient
                 ma_int = int(re.findall(r'\d+', ma)[0])
-                self.perf_df.loc[idx] = [sc, ma_int, fp] + list(be_test_df.iloc[0])
+                self.perf_df[model].loc[idx] = [sc, ma_int, fp] + list(be_test_df.iloc[0])
                 # store its result as NDArray
-                self.be_tests['sc'][sc].append(np.array(be_test_df))
+                self.be_tests[model]['sc'][sc].append(np.array(be_test_df))
                 ma_idx = self.ma_opts[j // len(self.fp_opts)]
-                self.be_tests['ma'][ma_idx].append(np.array(be_test_df))
+                self.be_tests[model]['ma'][ma_idx].append(np.array(be_test_df))
 
+                # increment idx
+                idx += 1
         
-        self.compere_perf_fig = self.compare_perf(len(scopes), model_name)
-        self.be_test_sc_fig = self.backward_elimination('sc')
-        self.be_test_ma_fig = self.backward_elimination('ma')
+        self.compere_perf_fig = self.compare_perf(len(scopes), model)
+        self.be_test_sc_fig = self.backward_elimination(model, 'sc')
+        self.be_test_ma_fig = self.backward_elimination(model, 'ma')
 
         return self.compere_perf_fig, self.be_test_sc_fig, self.be_test_ma_fig
 
 
-    def detail_perf(self, ma: int, fp: int, sc: int):
+    def detail_perf(self, model: str, ma: int, fp: int, sc: int):
         """
         Return two plotly chart:
         - Line chart: Comparing the predicted and actual value.
@@ -211,10 +236,13 @@ class PredictiveAnalysis:
         Return: plotly.graph_objs._figure.Figure
 
         """
+        # get the results of model
+        result = self.results[model]
+
         # get model and data
         d_name = f'{ma}MA_{fp}FP'
         data = self.datasets[d_name]
-        theta, y_hat, error = tuple(self.results[f'{fp}FP'][f'{ma}MA_{sc}SC'].values())
+        theta, y_hat, error = tuple(result[f'{fp}FP'][f'{ma}MA_{sc}SC'].values())
         
         # number of observations
         num_obs = len(y_hat)
@@ -285,12 +313,12 @@ class PredictiveAnalysis:
         return fig1, fig2
 
 
-    def gradient_descent(self, X, y, t, sc, eta=0.01, alpha=1.0, lambda_=0.5):
+    def linear_reg(self, X, y, t, sc):
         """
         Return the following three matrix (dtype: np.array)
-        - "theta"  -> parameters (intercept + coefficients) at each step
+        - "thetas"  -> parameters (intercept + coefficients) at each step
         - "y_hats" -> predicted values at each step
-        - "error"  -> prediction errors (actual - predicted values); SSE
+        - "errors"  -> prediction errors (actual - predicted values); SSE
         - "future" -> Predicted values based on the rest of features
 
         Parameters:
@@ -302,8 +330,9 @@ class PredictiveAnalysis:
         - "alpha": how strength the regularization is.
         - "lambda_": balancing between ridge and lasso regularization.
 
+
         Brief Steps:
-        - Initialize matries for theta, y_hats, error.
+        - Initialize matries for thetas, y_hats, errors.
         - Apply a given number of data ("t") to the mutiple linear regression (normal equation).
         - Define the initial parameters from the trained model.
         - At each step (total steps are len(y) - t):
@@ -314,56 +343,57 @@ class PredictiveAnalysis:
         """
 
         # define all matrix to be returned
-        k = len(self.X_name) # num of features + bias
-        theta = np.zeros((len(y)-t + 1, k))
-        y_hats = np.zeros((len(y)-t, 1))
-        error = np.zeros((len(y)-t, 1))
-        # Modify the matrix of features; adding bias
-
-        # define elastic net derivative
-        def elastic_net_der(theta, X, y, n=sc, a_=alpha, l_=lambda_):
-            # reshape
-            X = X.reshape(n, -1)
-            y_hat = np.dot(X, theta).reshape(-1, 1)
-            # error weighted feature
-            ewf = 2/n * np.dot(X.T, y_hat - y).reshape(1, -1)
-            d_l1 = l_ * a_ * np.sign(theta)
-            d_l2 = (1 - l_) * a_ * theta
-            return ewf + d_l1 + d_l2
+        k = len(self.X_name) # num of features (bias inclusive)
+        thetas = np.zeros((len(y[t:])+1, k))
+        y_hats = np.zeros((len(y[t:]), 1))
+        errors = np.zeros((len(y[t:]), 1))
         
         # initial training
         init_X, init_y = X[0:t], y[0:t]
         # obtain the initial parameters based on normal equation form
-        theta[0] = np.linalg.inv(init_X.T.dot(init_X)).dot(init_X.T).dot(init_y).reshape(1,-1)
+        thetas[0] = np.linalg.inv(init_X.T.dot(init_X)).dot(init_X.T).dot(init_y).reshape(1,-1)
+
+        # define elastic net gradient
+        def gradient(X, y, theta, n=sc, a_=self.alpha_, l_=self.lambda_):
+            # reshape
+            X = X.reshape(n, -1)
+            y_hat = np.dot(X, theta).reshape(-1, 1)
+            # error weighted feature
+            ewf = -2/n * np.dot(X.T, y - y_hat).reshape(1, -1)
+            d_l1 = l_ * a_ * np.sign(theta)
+            d_l2 = (1 - l_) * a_ * theta
+            return ewf + d_l1 + d_l2
         
         # incremental learnings
-        for i, idx in enumerate(range(t, len(y))):
+        for idx, i in enumerate(range(t, len(y), 1)):
             # get new data (X_i includes bias)
-            X_i, y_i = X[idx] , y[idx]
+            X_i, y_i = X[i] , y[i]
             # predicted variable
-            y_hats[i] = np.dot(X_i, theta[i])
+            y_hats[idx] = np.dot(X_i, thetas[idx])
             # predicted error
-            error[i] =  (y_hats[i] - y_i)
-            # start gradient descent based on the data scope ("s")
-            # if scope is > 1, taking care of the predicted error from the recent data over a given scope ('s')
-            if sc > 1:
-                # get the latest data based on the scope ('S')
-                X_, y_ = X[idx-sc+1:idx+1], y[idx-sc+1:idx+1]
-                derivative = elastic_net_der(theta[i], X_, y_)
-                theta[i+1] = theta[i] - eta * derivative
+            errors[idx] =  (y_hats[idx] - y_i)
+            # define subsets of X and y
+            X_sub, y_sub = X[i-sc+1:i+1], y[i-sc+1:i+1]
+            # get the current theta
+            theta_ = thetas[idx]
+            # iterations
+            for _ in range(self.iter_):
+                # get the partial derivative
+                grad = gradient(X_sub, y_sub, theta_)
+                # update the theta
+                theta_ -= self.eta_* grad.flatten()
+            
+            # assign finialized theta
+            thetas[idx+1] = theta_
 
-            # if scope is 1, only taking care of the predicted error from the most recent data 
-            else:
-                derivative = elastic_net_der(theta[i], X_i, y_i)
-                theta[i+1] = theta[i] - eta * derivative
 
         # calculate the future values
-        future = np.dot(X[len(y):], theta[-1])
+        future = np.dot(X[len(y):], thetas[-1])
 
-        return theta, y_hats, error, future
+        return thetas, y_hats, errors, future
 
 
-    def evaluation(self, X, y, t, theta, y_hats, error):
+    def evaluation(self, X, y, t, theta, y_hat, error):
             """
             Return the data frame; the following measureas by brackward eliminations:
             - Root Mean Square Error (rmse)
@@ -383,8 +413,8 @@ class PredictiveAnalysis:
             """
             # (0): Define Variables
             #  number of observations and features (excluding bias)
-            n, k = len(y_hats), len(theta[0]) - 1
-            #  measures matrix
+            n, k = len(y_hat), len(theta[0]) - 1
+            #  measures matrix (four measures on each feature)
             mm = np.zeros((k+1, 4))
             # assign the data frame index and columns
             rows = ['original'] + [f'theta{i+1}=0' for i in range(k)]
@@ -422,7 +452,7 @@ class PredictiveAnalysis:
             return pd.DataFrame(data=mm, index=rows, columns=cols)
 
 
-    def compare_perf(self, scope_num: int, model_name: str = ''):
+    def compare_perf(self, scope_num: int, model: str = ''):
         """
         Comparing the performance of linear regression models.
 
@@ -440,9 +470,9 @@ class PredictiveAnalysis:
             return x.mean() - x.min()
 
         # deine measures
-        measures = list(self.perf_df.columns)[3:]
+        measures = list(self.perf_df[model].columns)[3:]
         # modity perf_df
-        perf_df = self.perf_df.drop('FP', axis=1).groupby(['SC', 'MA']).agg(['mean', upper_error, lower_error])
+        perf_df = self.perf_df[model].drop('FP', axis=1).groupby(['SC', 'MA']).agg(['mean', upper_error, lower_error])
         perf_df.columns = ['_'.join(col) for col in perf_df.columns]
         perf_df = perf_df.reset_index()
         perf_df['SC'] = perf_df['SC'].astype(str)
@@ -467,7 +497,7 @@ class PredictiveAnalysis:
                 f_data.showlegend = True if i == 0 else False
                 fig.add_trace(f_data, row=r+1, col=c+1)
             
-        main_title = f'Comparing the {model_name} Model Results on Different Conditions'
+        main_title = f'Comparing the {[model]} Model Results on Different Conditions'
         sub_title1 = f'<br><span {self.SUB_CSS}> -- Scopes: how many month of the latest data is used for parameter adjustments.</span>'
         sub_title2 = f'<br><span {self.SUB_CSS}> -- Error Bars: Showing mean, min and max of each measures among various future predictions.</span>'
 
@@ -481,7 +511,7 @@ class PredictiveAnalysis:
         return fig
 
 
-    def backward_elimination(self, type_: str):
+    def backward_elimination(self, model: str, type_: str):
         """
         Evaluate the backward elimination for all models with focus on RMSE and adjusted R2.
         Visualize the scatter plots to show the difference from original result
@@ -489,7 +519,7 @@ class PredictiveAnalysis:
         Parameter:
         - 'type': either one of 'sc' or 'ma'
         """
-        be_test = self.be_tests[type_]
+        be_test = self.be_tests[model][type_]
         # number of features; excluding bias term
         n = len(self.X_name) - 1
         rmse_dict = {type_: [], 'theta': [], 'diff': []}
