@@ -8,7 +8,7 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from sklearn.preprocessing import PolynomialFeatures
-from sklearn.metrics import accuracy_score, confusion_matrix
+from sklearn.metrics import accuracy_score, confusion_matrix, auc
 
 
 class Standardization:
@@ -399,48 +399,58 @@ class PredictiveAnalysis:
         return thetas, y_hats, errors, future
 
 
-    def evaluation(self, X, y, t, theta, y_hat, error):
-            """
-            Return the data frame; the following measureas by brackward eliminations:
+    def evaluation(self, model, X, y, t, thetas, y_hats, errors):
+        """
+        Return the data frame; the following measureas:
+        (1): Numerical Target Value
             - Root Mean Square Error (rmse)
             - Standatd Error of Estimate (se)
             - Coefficient of Determination (r2)
             - Adjusted Coefficient of Determination (adj_r2)
 
-            Parameters:
-            - "t": number of months that were used for the initial training data.
-            - "X": independent variables
-            - "y": the actual target value (whole period)
-            - "theta": all parameters (intercept & coefficients) at each step
-            - "y_hats": the predicted target value at each step
-            - "error": difference between actual and predicted values at each step
+        (2): Categorical Target Value
+            - Accuracy (acc)
+            - Precsion (pre)
+            - Recall (rec)
+            - F1 Score (f1)
+            - Receiver Operating Characteristic (roc)
+            - Area Under the ROC Curve (auc)
 
-            Requirement: len(y[t:]) == len(y_hats)
-            """
-            # (0): Define Variables
-            #  number of observations and features (excluding bias)
-            n, k = len(y_hat), len(theta[0]) - 1
-            #  measures matrix (four measures on each feature)
-            mm = np.zeros((k+1, 4))
-            # assign the data frame index and columns
-            rows = ['original'] + [f'theta{i+1}=0' for i in range(k)]
+        Parameters:
+        - "model": either one of ['LinR', 'LogR', 'CART']
+        - "t": number of months that were used for the initial training data.
+        - "X": independent variables
+        - "y": the actual target value (whole period)
+        - "theta": all parameters (intercept & coefficients) at each step
+        - "y_hats": the predicted target value at each step
+        - "error": difference between actual and predicted values at each step
+
+        Requirement: len(y[t:]) == len(y_hats)
+        """
+        #  number of observations and features (excluding bias)
+        n, k = len(y_hats), len(thetas[0]) - 1
+        # define feature matrix and target based on "t"
+        X_, y_ = X[t:n+t], y[t:]
+        # assign the data frame index and columns
+        rows = ['original'] + [f'theta{i+1}=0' for i in range(k)]
+
+        # define measures based on model
+        if model == 'LinR':
+            # names of the measure
             cols = ['rmse', 'se', 'r2', 'adj_r2']
-            #  mean of actual "y" over the "t" months
-            y_mean = np.mean(y[t:])
-            #  sum of square total
-            sst = np.sum((y[t:] - y_mean)**2)
-            #  define feature matrix and target based on "t"
-            X_, y_ = X[t:n+t], y[t:]
-
+            # measures matrix
+            mm = np.zeros((k+1, len(cols)))
+            # sum of square total
+            sst = np.sum((y_ - np.mean(y_))**2)
             #  number of coefficients
             for i in range(k+1):
                 # simply applying the given error
                 if i == 0:
-                    error_ = error
+                    error_ = errors
                 # conduct the backward elimination
                 else:
                     # copy the parameters matrix
-                    theta_ = theta[:n].copy()
+                    theta_ = thetas[:n].copy()
                     # change a particular coefficient to 0 arbitrarily.
                     theta_[:, i] = 0
                     # based on revised parameters, get the predicted value
@@ -454,8 +464,56 @@ class PredictiveAnalysis:
                 mm[i, 1] = np.sqrt(sse / (n - k - 1))
                 mm[i, 2] = 1 - sse/sst
                 mm[i, 3] = 1 - (sse/(n - k -1))/(sst/(n-1))
-                
+
             return pd.DataFrame(data=mm, index=rows, columns=cols)
+
+        elif model == 'LogR':
+            # define functions to generate classification measures from confusion matrix
+            def measures_from_cm(cm):
+                tn, fp, fn, tp = cm.ravel()
+                #calculate the metrics
+                acc = (tp + tn) / np.sum(cm)  # accuracy
+                prec = tp / (tp + fp)  # precision
+                rec = tp / (tp + fn)  # recall
+                f1 = 2 * prec * rec / (prec + rec)  # f1 score
+                fpr = fp / (fp + tn)  # false positive rate
+                tpr = tp / (tp + fn)  # true positive rate
+                # points for roc
+                roc_points = [(0, 0), (fpr, tpr), (1, 1)]
+                auc_ = auc([p[0] for p in roc_points], [p[1] for p in roc_points])
+
+                return [acc, prec, rec, f1, fpr, tpr, auc_]
+            
+            # names of the measures
+            cols = ['acc', 'pre', 'rec', 'f1', 'fpr', 'tpr', 'auc']
+            # measures matrix
+            mm = np.zeros((k+1, len(cols)))
+            #  number of coefficients
+            for i in range(k+1):
+                # simply applying the predicted label
+                if i == 0:
+                    y_hats_ = np.where(y_hats >= 0.5, 1, 0)
+                # conduct the backward elimination
+                else:
+                    # copy the parameters matrix
+                    theta_ = thetas[:n].copy()
+                    # change a particular coefficient to 0 arbitrarily.
+                    theta_[:, i] = 0
+                    # based on revised parameters, get the predicted value
+                    hx = np.sum(X_ * theta_, axis=1).reshape(-1, 1)
+                    y_hats_ = np.where(1 / (1 + np.exp(-hx)) >= 0.5, 1, 0)
+            
+                # confusion matrix
+                cm = confusion_matrix(y_, y_hats_)
+                # assign each measure              
+                measures = measures_from_cm(cm)
+                for j, val in enumerate(measures):
+                    mm[i, j] = val
+
+            return pd.DataFrame(data=mm, index=rows, columns=cols)
+
+        else:
+            raise(TypeError("Model should be either one of ['LinR', 'LogR', 'CART']"))
 
 
     def compare_perf(self, scope_num: int, model: str = ''):
