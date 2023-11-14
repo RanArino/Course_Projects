@@ -482,10 +482,10 @@ class PredictiveAnalysis:
                 roc_points = [(0, 0), (fpr, tpr), (1, 1)]
                 auc_ = auc([p[0] for p in roc_points], [p[1] for p in roc_points])
 
-                return [acc, prec, rec, f1, fpr, tpr, auc_]
+                return [acc, prec, rec, f1, auc_]
             
             # names of the measures
-            cols = ['acc', 'pre', 'rec', 'f1', 'fpr', 'tpr', 'auc']
+            cols = ['acc', 'pre', 'rec', 'f1', 'auc']
             # measures matrix
             mm = np.zeros((k+1, len(cols)))
             #  number of coefficients
@@ -516,7 +516,7 @@ class PredictiveAnalysis:
             raise(TypeError("Model should be either one of ['LinR', 'LogR', 'CART']"))
 
 
-    def compare_perf(self, scope_num: int, model: str = ''):
+    def compare_perf(self, model: str = ''):
         """
         Comparing the performance of linear regression models.
 
@@ -526,7 +526,7 @@ class PredictiveAnalysis:
         - "scope-num": the number of user-given scopes
         - "model_name": model name to show it on the figure title
         """
-        # define customer function
+        # define custom function
         def upper_error(x):
             return x.max() - x.mean()
 
@@ -556,7 +556,7 @@ class PredictiveAnalysis:
                 error_y=f'{ms}_upper_error', error_y_minus=f'{ms}_lower_error'
             )
             # add each data
-            for f_data in fig_data.data[:scope_num]:
+            for f_data in fig_data.data[:len(self.sc_opts)]:
                 # remove duplicated legends
                 f_data.showlegend = True if i == 0 else False
                 fig.add_trace(f_data, row=r+1, col=c+1)
