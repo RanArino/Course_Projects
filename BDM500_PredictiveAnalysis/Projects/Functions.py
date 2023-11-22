@@ -217,7 +217,7 @@ class PredictiveAnalysis:
                 # store future values
                 self.futures[model][fp][ma][i] = future
                 # get test result of backward elimination
-                be_test_df = self.evaluation(data['X'], data['y'], 120, theta, y_hat, error)
+                be_test_df = self.evaluation(model, data['X'], data['y'], 120, theta, y_hat, error)
                 # retrienve only performance without any changes in each coefficient
                 ma_int = int(re.findall(r'\d+', ma)[0])
                 self.perf_df[model].loc[idx] = [sc, ma_int, fp] + list(be_test_df.iloc[0])
@@ -229,7 +229,7 @@ class PredictiveAnalysis:
                 # increment idx
                 idx += 1
         
-        self.compere_perf_fig = self.compare_perf(len(scopes), model)
+        self.compere_perf_fig = self.compare_perf(model)
         self.be_test_sc_fig = self.backward_elimination(model, 'sc')
         self.be_test_ma_fig = self.backward_elimination(model, 'ma')
 
