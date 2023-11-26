@@ -8,7 +8,8 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from sklearn.preprocessing import PolynomialFeatures
-from sklearn.metrics import accuracy_score, confusion_matrix, auc
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import confusion_matrix, auc
 
 
 class Standardization:
@@ -106,15 +107,18 @@ class PredictiveAnalysis:
         self.lambda_ = 0
         self.iter_ = 0
         
-        # set variables for model evaluation
+        # set variables for model evaluation    
+        self.colors = ['#636EFA', '#EF553B', '#00CC96', '#AB63FA', '#FFA15A', '#19D3F3', '#FF6692', '#B6E880', '#FF97FF', '#FECB52']
+        self.titles = {
+            'LinR': 'Linear Regression', 'LogR': 'Logistic Regression',
+            'ACC': 'Accuracy', 'PRE': 'Precision', 'REC': 'Recall', 'F1': 'F1 score', 'AUC': 'Area Under ROC Curve'}
+        
         self.results = {model: {} for model in ['LinR', 'LogR', 'CART']}  # theta, y_hat, sigma for each scope and dataset
         self.futures = {model: {} for model in ['LinR', 'LogR', 'CART']}  # predicted values for each 'fp'
         self.be_tests = {model: {'ma': {}, 'sc': {}} for model in ['LinR', 'LogR', 'CART']}  # backward elimination test results
-        self.perf_df = {model: pd.DataFrame(data=[], columns=['SC', 'MA', 'FP', 'RMSE', 'SE', 'R2', 'Adj-R2']) for model in ['LinR', 'LogR', 'CART']}
         self.perf_df = {'LinR': pd.DataFrame(data=[], columns=['SC', 'MA', 'FP', 'RMSE', 'SE', 'R2', 'Adj-R2']),
-                        'LogR': pd.DataFrame(data=[], columns=['SC', 'MA', 'FP', 'ACC', 'PRE', 'REC' 'F1', 'ROC', 'AUC']),
+                        'LogR': pd.DataFrame(data=[], columns=['SC', 'MA', 'FP', 'ACC', 'PRE', 'REC', 'F1', 'AUC']),
                         'CART': pd.DataFrame(data=[], columns=['SC', 'MA', 'FP', 'RMSE', 'SE', 'R2', 'Adj-R2'])}
-
 
         # initialize class
         self.poly = None
@@ -202,7 +206,7 @@ class PredictiveAnalysis:
                     theta, y_hat, error, future = self.linear_reg(X=data['X'], y=data['y'], t=120, sc=sc)
 
                 elif model == 'LogR':
-                    theta, y_hat, error, future = self.logistic_reg(X=data['X'], y=data['y'], t=120, sc=sc)
+                    theta, y_hat, error, future = self.logistic_reg(X=data['X'], y=data['y_cat'], t=120, sc=sc)
 
                 elif model == 'CART':
                     theta, y_hat, error, future = None, None, None, None
@@ -216,8 +220,10 @@ class PredictiveAnalysis:
                 self.results[model][fp].update({f"{ma}_{sc}SC": {'theta': theta, 'y_hat': y_hat, 'error': error}})
                 # store future values
                 self.futures[model][fp][ma][i] = future
+
                 # get test result of backward elimination
-                be_test_df = self.evaluation(model, data['X'], data['y'], 120, theta, y_hat, error)
+                y = data['y_cat'] if model == 'LogR' else data['y']
+                be_test_df = self.evaluation(model, data['X'], y, 120, theta, y_hat, error)
                 # retrienve only performance without any changes in each coefficient
                 ma_int = int(re.findall(r'\d+', ma)[0])
                 self.perf_df[model].loc[idx] = [sc, ma_int, fp] + list(be_test_df.iloc[0])
@@ -399,6 +405,90 @@ class PredictiveAnalysis:
         return thetas, y_hats, errors, future
 
 
+    def logistic_reg(self, X, y, t, sc):
+        """
+        Return the following five matrix (dtype: np.array)
+        - "thetas"  -> parameters (intercept + coefficients) at each step
+        - dictionary: predicted y values:
+            - "cat" key: "y_preds_c" -> predicted labels at each step
+            - "proba" ley: "y_preds_p" -> predicted probability at each step (nagetige & positive class)
+        - "errors"  -> prediction errors (actual - predicted values); SSE
+        - dictionary: future y values 
+            - "cat": predicted labels at each step
+            - "proba": probability of the positive class label
+
+        Parameters:
+        - "X": np.array -> independent variables
+        - "y": np.array -> target variables (shouold be categorical)
+        - "t": int -> number of data that were used for the initial parameter creation.
+        - "sc": int -> scope of the latest data for parameter updates.
+
+        Brief Steps:
+        - Initialize all matries to store ithe ncrementally updated values.
+        - Apply a given number of data ("t") to the mutiple linear regression (normal equation).
+        - Define the initial parameters from the trained model.
+        - At each step (total steps are len(y) - t):
+            - Get a single pair of unfamilar data; both X and y.
+            - Predict the target ("y_hats") based on the latest parameters("theta[i]").
+            - Calculate the difference between actual and predicted values; "error[i]".
+            - Update parameters for the next step ("theta[i+1]").
+        """
+        # define sigmoid function
+        def sigmoid(h):
+            return 1 / (1 + np.exp(-h))
+
+        # calculate the gradient vector
+        def gradient(X, y, theta, w, alpha_, lambda_):
+            m = len(y)
+            preds = sigmoid(np.dot(X, theta.reshape(-1,1)))
+            grad = -np.dot(X.T, np.multiply(y - preds, w)) / m
+            l1 = lambda_ * np.sign(theta)
+            l2 = (1 - lambda_) * theta
+
+            return grad.T + alpha_ * (l1 + l2)
+        
+        # initialize matrics to store values at each step
+        thetas = np.zeros((len(y[t:])+1, 6))
+        y_hats = np.zeros((len(y[120:]), 1))
+        errors = np.zeros((len(y[t:]), 1))
+        # initial training 
+        logit = LogisticRegression(fit_intercept=False, class_weight='balanced')
+        logit.fit(X[:t], y[:t].flatten())
+        # set initial parameters
+        thetas[0] = logit.coef_
+        # define class weights
+        weights = {u: len(X) / (2*np.bincount(y.flatten())[u]) for u in np.unique(y)}
+        # define the vectorized function to converting class labels to weights
+        vfunc_weights = np.vectorize(lambda x: weights[x])
+
+        # start incremental learning
+        for idx, i in enumerate(range(120, len(y), 1)):
+            # apply sigmoid function
+            y_hats[idx] = sigmoid(np.dot(X[i:i+1], thetas[idx]))
+            # actual value
+            y_act = y[i][0]
+            # logistic loss
+            y_proba = {0: 1-y_hats[idx], 1: y_hats[idx]}
+            errors[idx] = -1 * weights[y_act] * np.log(y_proba[y_act])
+
+            # subset pf X and y
+            X_sub, y_sub = X[i+1-sc: i+1], y[i+1-sc: i+1]
+            # update parameter
+            theta_epoch = thetas[idx]
+            for i in range(self.iter_):
+                # get the partial derivative
+                grad = gradient(X_sub, y_sub, theta_epoch, vfunc_weights(y_sub), self.alpha_, self.lambda_)
+                # update the theta
+                theta_epoch -= self.eta_* grad.flatten()
+
+            thetas[idx+1] = theta_epoch
+
+        # predict the future labels
+        future = sigmoid(np.dot(X[len(y):], thetas[-1]))
+
+        return thetas, y_hats, errors, future
+
+
     def evaluation(self, model, X, y, t, thetas, y_hats, errors):
         """
         Return the data frame; the following measureas:
@@ -516,17 +606,8 @@ class PredictiveAnalysis:
             raise(TypeError("Model should be either one of ['LinR', 'LogR', 'CART']"))
 
 
-    def compare_perf(self, model: str = ''):
-        """
-        Comparing the performance of linear regression models.
-
-        Return: plotly.graph_objs._figure.Figure
-
-        Parameters:
-        - "scope-num": the number of user-given scopes
-        - "model_name": model name to show it on the figure title
-        """
-        # define custom function
+    def compare_perf(self, model: str):
+         # define custom function
         def upper_error(x):
             return x.max() - x.mean()
 
@@ -540,78 +621,87 @@ class PredictiveAnalysis:
         perf_df.columns = ['_'.join(col) for col in perf_df.columns]
         perf_df = perf_df.reset_index()
         perf_df['SC'] = perf_df['SC'].astype(str)
-        
-        # define fig
-        fig = make_subplots(rows=2, cols=2, subplot_titles=measures,
-                            horizontal_spacing=0.05, vertical_spacing=0.05,
-                            shared_xaxes=True, shared_yaxes=True)
-        [fig.layout.annotations[i].update(font=dict(size=11, color='grey')) for i in range(len(measures))]
 
-        for i, ms in enumerate(measures):
-            # row and col idx
-            r, c = i // 2, i % 2
-            # figure data
-            fig_data = px.scatter(
+        # define figures
+        figs = []
+        # traversing all measures
+        for ms in measures:
+            # define fifure
+            fig = px.scatter(
                 perf_df, x='MA', y=f'{ms}_mean', color='SC',
                 error_y=f'{ms}_upper_error', error_y_minus=f'{ms}_lower_error'
             )
-            # add each data
-            for f_data in fig_data.data[:len(self.sc_opts)]:
-                # remove duplicated legends
-                f_data.showlegend = True if i == 0 else False
-                fig.add_trace(f_data, row=r+1, col=c+1)
+
+            fig.update_xaxes(title_text='Moving Averages', title_font={'color':'lightgrey'})
+            fig.update_layout(
+                height=300, width=400, template='plotly_dark',
+                title=dict(text=self.titles[ms] if self.titles.get(ms) else ms,  xanchor="center", x=0.50),
+                showlegend=False, yaxis_title='', 
+                margin=go.layout.Margin(t=50, l=30, r=30, b=50)
+                ) 
+
+            figs.append(fig)
+
             
-        main_title = f'Comparing the {[model]} Model Results on Different Conditions'
-        sub_title1 = f'<br><span {self.SUB_CSS}> -- Scopes: how many month of the latest data is used for parameter adjustments.</span>'
-        sub_title2 = f'<br><span {self.SUB_CSS}> -- Error Bars: Showing mean, min and max of each measures among various future predictions.</span>'
+        #main_title = f'Comparing the {[model]} Model Results on Different Conditions'
+        #sub_title1 = f'<br><span {self.SUB_CSS}> -- Scopes: how many month of the latest data is used for parameter adjustments.</span>'
+        #sub_title2 = f'<br><span {self.SUB_CSS}> -- Error Bars: Showing mean, min and max of each measures among various future predictions.</span>'
 
-        # edit layput
-        fig.update_xaxes(title_text='Moving Averages', row=2)
-        fig.update_layout(height=500, width=800, template='plotly_dark', 
-                        title=dict(text=main_title + sub_title1 + sub_title2,  yanchor="top", y=0.95),
-                        legend=dict(title_text='Scopes', title_font={'color':'lightgrey'}),
-                        margin=go.layout.Margin(t=100, l=40, r=40))
-
-        return fig
-
+        return figs
 
     def backward_elimination(self, model: str, type_: str):
         """
-        Evaluate the backward elimination for all models with focus on RMSE and adjusted R2.
+        Evaluate the backward elimination for all models with the following focuses
+            - RMSE and adjusted R2 for regression
+            - Accuracy and f1 score and for classification
         Visualize the scatter plots to show the difference from original result
 
         Parameter:
+        - 'model': either one of models: 'LinR', 'LogR', 'CART'
         - 'type': either one of 'sc' or 'ma'
         """
         be_test = self.be_tests[model][type_]
         # number of features; excluding bias term
         n = len(self.X_name) - 1
-        rmse_dict = {type_: [], 'theta': [], 'diff': []}
-        r2_dict = {type_: [], 'theta': [], 'diff': []}
+        # define dictionary for two measures
+        m1_d = {type_: [], 'theta': [], 'diff': []}  # rmse (reg), acc (cls)
+        m2_d = {type_: [], 'theta': [], 'diff': []}  # adj-r2 (reg), f1 (cls)
+        # define location of focusing measures
+        if model == 'LogR':
+            idx1 = 0
+            idx2 = -2
+            names = ['Acc', 'F1']
+        else:
+            idx1 = 0
+            idx2 = -1
+            names = ['RMSE', 'Adj-R2']
+        
+        #rmse_dict = {type_: [], 'theta': [], 'diff': []}
+        #r2_dict = {type_: [], 'theta': [], 'diff': []}
 
         for key in be_test:
             for matrix in be_test[key]:
                 # learning method
-                rmse_dict[type_] += [key] * (n)
-                r2_dict[type_] += [key] * (n)
+                m1_d[type_] += [key] * (n)
+                m2_d[type_] += [key] * (n)
                 # add theta name
-                rmse_dict['theta'] += list(self.X_name[1:])
-                r2_dict['theta'] += list(self.X_name[1:])
+                m1_d['theta'] += list(self.X_name[1:])
+                m2_d['theta'] += list(self.X_name[1:])
                 # first column is RMSE and last one is adjusted R2
                 diff = matrix[1:] - matrix[0]
                 # add error
-                rmse_dict['diff'] += list(diff[:, 0])
-                r2_dict['diff'] += list(diff[:, -1])
+                m1_d['diff'] += list(diff[:, idx1])
+                m2_d['diff'] += list(diff[:, idx2])
                 
 
         # plot data points
-        rmse_df = pd.DataFrame(rmse_dict)
-        r2_df = pd.DataFrame(r2_dict)
-        fig1 = px.strip(data_frame=rmse_df, x='theta', y='diff', color=type_)
-        fig2 = px.strip(data_frame=r2_df, x='theta', y='diff', color=type_)
+        m1_df = pd.DataFrame(m1_d)
+        m2_df = pd.DataFrame(m2_d)
+        fig1 = px.strip(data_frame=m1_df, x='theta', y='diff', color=type_)
+        fig2 = px.strip(data_frame=m2_df, x='theta', y='diff', color=type_)
 
         # set figure
-        fig = make_subplots(rows=1, cols=2, subplot_titles=["RMSE", "Adj-R2"])
+        fig = make_subplots(rows=1, cols=2, subplot_titles=names)
         # Update y position of subplot titles
         fig.layout.annotations[0].update(y=0.95, font=dict(size=11, color='grey'))
         fig.layout.annotations[1].update(y=0.95, font=dict(size=11, color='grey'))
