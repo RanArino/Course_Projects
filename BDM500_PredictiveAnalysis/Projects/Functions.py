@@ -176,10 +176,21 @@ class PredictiveAnalysis:
                 })
 
 
-    def model_learning(self, scopes: list, model: str = '', eta_: float = 0.001, alpha_: float = 0.1, lambda_: float = 0.5, iter_: int = 100):
+    def model_learning(self, scopes: list, model: str = '', eta_: float = 0.01, alpha_: float = 0.1, lambda_: float = 0.5, iter_: int = 100, th_=0.1):
         """
+        Define and return three types of figures
+        - "self.compere_perf_fig": comparing performance with respect to evaluation metrics.
+        - "self.be_test_sc_fig": result of the backward elimination with respect to scopes.
+        - "self.be_test_ma_fig": result of the backward elimination with respect to moving averages.
         
-
+        Parameters:
+        - "scopes": how much previous data should be considered to update the parameters next step.
+        - "model": either one of ['LinR', 'LogR', 'CART'].
+        - "eta_": learning rate of each gradient descent.
+        - "alpha_": degree of how strong the regularizations are.
+        - "lambda_": balancer between l2 and l1 norm.
+        - "iter_": maximum iteration of parameter updates at each step
+        - "th_": the threshold for early stopping; applied in gradient of each parameter.
         """
         # define variable
         self.sc_opts = scopes
@@ -189,6 +200,7 @@ class PredictiveAnalysis:
         self.alpha_ = alpha_
         self.lambda_ = lambda_
         self.iter_ = iter_
+        self.th_ = th_
  
         # set spaces
         self.be_tests[model]['ma'].update({ma: [] for ma in self.ma_opts})
@@ -304,7 +316,10 @@ class PredictiveAnalysis:
         # Scatter
         fig2.add_trace(
             go.Scatter(x=[i / 3 for i in range(len(error))], y=error.flatten(), mode='markers', 
-                    marker=dict(color='red', opacity=0.5), name='Error'),
+                    marker=dict(color='red', opacity=0.5), name='Error',
+                    hoverinfo='name+y+text',
+                    text=["Date: " + d.strftime("%b %Y") for d in fig1.data[0]['x']],
+                    ),
         )
         # histogram
         fig2.add_trace(
@@ -393,6 +408,9 @@ class PredictiveAnalysis:
             for _ in range(self.iter_):
                 # get the partial derivative
                 grad = gradient(X_sub, y_sub, theta_)
+                # define early stopping
+                if np.all(np.abs(grad) < self.th_):
+                    break
                 # update the theta
                 theta_ -= self.eta_* grad.flatten()
             
@@ -478,6 +496,9 @@ class PredictiveAnalysis:
             for i in range(self.iter_):
                 # get the partial derivative
                 grad = gradient(X_sub, y_sub, theta_epoch, vfunc_weights(y_sub), self.alpha_, self.lambda_)
+                # define early stopping
+                if np.all(np.abs(grad) < self.th_):
+                    break
                 # update the theta
                 theta_epoch -= self.eta_* grad.flatten()
 
