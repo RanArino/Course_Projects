@@ -634,30 +634,19 @@ class PredictiveAnalysis:
 
 
     def compare_perf(self, model: str):
-         # define custom function
-        def upper_error(x):
-            return x.max() - x.mean()
-
-        def lower_error(x):
-            return x.mean() - x.min()
-
         # deine measures
-        measures = list(self.perf_df[model].columns)[3:]
+        measures = list(self.perf_df['LinR'].columns)[3:]
         # modity perf_df
-        perf_df = self.perf_df[model].drop('FP', axis=1).groupby(['SC', 'MA']).agg(['mean', upper_error, lower_error])
-        perf_df.columns = ['_'.join(col) for col in perf_df.columns]
+        perf_df = self.perf_df['LinR'].drop('SC', axis=1).groupby(['FP', 'MA']).mean()
+        #perf_df.columns = ['_'.join(col) for col in perf_df.columns]
         perf_df = perf_df.reset_index()
-        perf_df['SC'] = perf_df['SC'].astype(str)
+        perf_df['MA'] = perf_df['MA'].astype(str)
 
-        # define figures
         figs = []
         # traversing all measures
         for ms in measures:
             # define fifure
-            fig = px.scatter(
-                perf_df, x='MA', y=f'{ms}_mean', color='SC',
-                error_y=f'{ms}_upper_error', error_y_minus=f'{ms}_lower_error'
-            )
+            fig = px.scatter(perf_df, x='FP', y=ms, color='MA')
 
             fig.update_xaxes(title_text='Moving Averages', title_font={'color':'lightgrey'})
             fig.update_layout(
@@ -668,12 +657,7 @@ class PredictiveAnalysis:
                 ) 
 
             figs.append(fig)
-
             
-        #main_title = f'Comparing the {[model]} Model Results on Different Conditions'
-        #sub_title1 = f'<br><span {self.SUB_CSS}> -- Scopes: how many month of the latest data is used for parameter adjustments.</span>'
-        #sub_title2 = f'<br><span {self.SUB_CSS}> -- Error Bars: Showing mean, min and max of each measures among various future predictions.</span>'
-
         return figs
 
 
