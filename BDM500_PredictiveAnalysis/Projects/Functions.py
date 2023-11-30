@@ -182,7 +182,7 @@ class PredictiveAnalysis:
                 })
 
 
-    def model_learning(self, scopes: list, model: str = '', coef_name: list = [], eta_: float = 0.01, alpha_: float = 1, lambda_: float = 0.5, iter_: int = 100):
+    def model_learning(self, scopes: list, model: str = '', X_use: list = [], eta_: float = 0.01, alpha_: float = 1, lambda_: float = 0.5, iter_: int = 100):
         """
         Define and return three types of figures
         - "self.compere_perf_fig": comparing performance with respect to evaluation metrics.
@@ -192,7 +192,7 @@ class PredictiveAnalysis:
         Parameters:
         - "scopes": how much previous data should be considered to update the parameters next step.
         - "model": either one of ['LinR', 'LogR', 'CART'].
-        - "coef_name": the list of feature names that are used for the model training.
+        - "X_use": the list of feature names that are used for the model training.
         - "eta_": learning rate of each gradient descent.
         - "alpha_": degree of how strong the regularizations are.
         - "lambda_": balancer between l2 and l1 norm.
@@ -200,6 +200,11 @@ class PredictiveAnalysis:
         """
         # define variable
         self.sc_opts = scopes
+        # define X feature index that will be used for model training
+        if not X_use:
+            self.X_use_idx = [i for i in range(len(self.X_name))]
+        else:
+            self.X_use_idx = [0] + list(np.where(np.in1d(self.X_name, X_use))[0])
 
         # set hyperparameters globally
         self.eta_ = eta_
@@ -219,12 +224,12 @@ class PredictiveAnalysis:
             for d_key in self.datasets.keys():
                 # acquire data
                 data = self.datasets[d_key]
-                
+
                 if model == 'LinR':
-                    theta, y_hat, error, future = self.linear_reg(X=data['X'], y=data['y'], t=120, sc=sc)
+                    theta, y_hat, error, future = self.linear_reg(X=data['X'][:, self.X_use_idx], y=data['y'], t=120, sc=sc)
 
                 elif model == 'LogR':
-                    theta, y_hat, error, future = self.logistic_reg(X=data['X'], y=data['y_cat'], t=120, sc=sc)
+                    theta, y_hat, error, future = self.logistic_reg(X=data['X'][:, self.X_use_idx], y=data['y_cat'], t=120, sc=sc)
 
                 elif model == 'CART':
                     theta, y_hat, error, future = None, None, None, None
@@ -241,7 +246,7 @@ class PredictiveAnalysis:
 
                 # get test result of backward elimination
                 y = data['y_cat'] if model == 'LogR' else data['y']
-                be_test_df = self.evaluation(model, data['X'], y, 120, theta, y_hat, error)
+                be_test_df = self.evaluation(model, data['X'][:, self.X_use_idx], y, 120, theta, y_hat, error)
                 # retrienve only performance without any changes in each coefficient
                 ma_int = int(re.findall(r'\d+', ma)[0])
                 self.perf_df[model].loc[idx] = [sc, ma_int, fp] + list(be_test_df.iloc[0])
@@ -532,11 +537,11 @@ class PredictiveAnalysis:
         Requirement: len(y[t:]) == len(y_hats)
         """
         #  number of observations and features (excluding bias)
-        n, k = len(y_hats), len(thetas[0]) - 1
+        n, k = len(y_hats), X.shape[1] - 1
         # define feature matrix and target based on "t"
         X_, y_ = X[t:n+t], y[t:]
         # assign the data frame index and columns
-        rows = ['original'] + [f'theta{i+1}=0' for i in range(k)]
+        rows = ['original'] + [f'theta{i}=0' for i in self.X_use_idx[1:]]
 
         # define measures based on model
         if model == 'LinR':
@@ -625,7 +630,6 @@ class PredictiveAnalysis:
         measures = list(self.perf_df[model].columns)[3:]
         # modity perf_df
         perf_df = self.perf_df[model].drop('SC', axis=1).groupby(['FP', 'MA']).mean()
-        #perf_df.columns = ['_'.join(col) for col in perf_df.columns]
         perf_df = perf_df.reset_index()
         perf_df['MA'] = perf_df['MA'].astype(str)
 
@@ -660,7 +664,7 @@ class PredictiveAnalysis:
         """
         be_test = self.be_tests[model]
         # number of features; excluding bias term
-        n = len(self.X_name) - 1
+        n = len(self.X_use_idx) - 1
         # define dictionary for two measures
         m1_d = {'sc': [], 'theta': [], 'diff': []}  # rmse (reg), acc (cls)
         m2_d = {'sc': [], 'theta': [], 'diff': []}  # adj-r2 (reg), f1 (cls)
@@ -680,8 +684,8 @@ class PredictiveAnalysis:
                 m1_d['sc'] += [key] * (n)
                 m2_d['sc'] += [key] * (n)
                 # add theta name
-                m1_d['theta'] += list(self.X_name[1:])
-                m2_d['theta'] += list(self.X_name[1:])
+                m1_d['theta'] += [self.X_name[i] for i in self.X_use_idx[1:]]
+                m2_d['theta'] += [self.X_name[i] for i in self.X_use_idx[1:]]
                 # first column is RMSE and last one is adjusted R2
                 diff = matrix[1:] - matrix[0]
                 # add error
@@ -756,7 +760,7 @@ class PredictiveAnalysis:
         # calculate mean
         thetas_mean = thetas_data / denominator
         # define column names
-        cols = self.X_name[1:]
+        cols = [self.X_name[i] for i in self.X_use_idx[1:]]
         # adding thetas_data
         thetas_df = pd.concat([thetas_df, pd.DataFrame(thetas_mean, columns=cols)], axis=1)
         
