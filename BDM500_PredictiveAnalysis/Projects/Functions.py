@@ -2,6 +2,7 @@ import numpy as np
 from numpy.typing import NDArray
 import pandas as pd
 import re
+from dateutil.relativedelta import relativedelta
 
 import plotly.express as px
 import plotly.graph_objects as go
@@ -123,6 +124,12 @@ class PredictiveAnalysis:
         # initialize class
         self.poly = None
         self.scaler = None
+
+        # initialize figures
+        self.compere_perf_fig = None  # evaluation metrics
+        self.be_test_sc_fig = None  # backward elimination (scopes)
+        self.be_test_na_fig = None  # backward elimination (moving averages)
+        self.coef_dev_fig = None  # development of coefficient over time 
         
         # css style for sub title
         self.SUB_CSS = 'style="font-size: 12.5px; color: lightgrey;"'
@@ -182,6 +189,7 @@ class PredictiveAnalysis:
         - "self.compere_perf_fig": comparing performance with respect to evaluation metrics.
         - "self.be_test_sc_fig": result of the backward elimination with respect to scopes.
         - "self.be_test_ma_fig": result of the backward elimination with respect to moving averages.
+        - "self.coef_dev_fig": development of thetas(coefficisnts) over time.
         
         Parameters:
         - "scopes": how much previous data should be considered to update the parameters next step.
@@ -251,8 +259,9 @@ class PredictiveAnalysis:
         self.compere_perf_fig = self.compare_perf(model)
         self.be_test_sc_fig = self.backward_elimination(model, 'sc')
         self.be_test_ma_fig = self.backward_elimination(model, 'ma')
+        self.coef_dev_fig = self.coefs_develop(model)
 
-        return self.compere_perf_fig, self.be_test_sc_fig, self.be_test_ma_fig
+        return self.compere_perf_fig, self.be_test_sc_fig, self.be_test_ma_fig, self.coef_dev_fig
 
 
     def detail_perf(self, model: str, ma: int, fp: int, sc: int):
@@ -667,6 +676,7 @@ class PredictiveAnalysis:
 
         return figs
 
+
     def backward_elimination(self, model: str, type_: str):
         """
         Evaluate the backward elimination for all models with the following focuses
@@ -741,3 +751,59 @@ class PredictiveAnalysis:
                         margin=go.layout.Margin(t=80, b=60, l=80, r=40))
     
         return fig
+    
+    
+    def coefs_develop(self, model: str):
+        """
+        Generate the development of each coefficient impacts over time on average.
+
+        Parameters:
+        - "model": either one of defined model names; "LinR" and "LogR"
+
+        """
+        # get the minimum theta dimentions (ecluding bias term)
+        max_fp, max_ma, first_sc = max(self.fp_opts), max(self.ma_opts), self.sc_opts[0]
+        thetas_dim = self.results[model][f'{max_fp}FP'][f'{max_ma}MA_{first_sc}SC']['theta'][:, 1:].shape
+        # get the last date of data frame
+        last_date = pd.to_datetime(self.df['Date'].iloc[-1])
+        # get the next month last date
+        next_month_last = last_date + relativedelta(months=1)
+        # define start date
+        start_date = next_month_last - relativedelta(months=thetas_dim[0]-1)
+        # define date ranges
+        date_ranges = np.array(pd.date_range(start_date, next_month_last, freq='M'))
+        # define data frame
+        thetas_df = pd.DataFrame({"Date": date_ranges})
+
+        # initialize thetas data
+        thetas_data = np.zeros(thetas_dim)
+        denominator = 0
+        # get all thetas from multiple models
+        for k1 in self.results[model].keys():
+            for k2 in self.results[model][k1].keys():
+                thetas_data += self.results[model][k1][k2]['theta'][-thetas_dim[0]:, 1:]
+                denominator += 1
+
+        # calculate mean
+        thetas_mean = thetas_data / denominator
+        # define column names
+        cols = self.X_name[1:]
+        # adding thetas_data
+        thetas_df = pd.concat([thetas_df, pd.DataFrame(thetas_mean, columns=cols)], axis=1)
+        
+        # create visualizations
+        fig = px.line(thetas_df, 'Date', cols)
+        for trace in fig.data:
+            trace.hovertemplate = f'%{{y}}'
+
+        fig.update_layout(
+            title='Impact of Economic Indicators on S&P500 Over Time',
+            legend=dict(title_text='Indicators', orientation='h', font_color='lightgray',
+                        x=-0.05, y=1.05, xanchor='left', yanchor='top'),
+            template='plotly_dark', hovermode="x unified",
+            yaxis=dict(title_text='Strengths'),
+            height=400, width=800, margin=go.layout.Margin(t=60, b=50, l=50, r=30),
+            )
+        
+        return fig
+    
