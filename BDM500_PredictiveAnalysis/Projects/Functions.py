@@ -143,7 +143,7 @@ class PredictiveAnalysis:
         self.y_name = y_n
         self.ma_opts = ma
         self.fp_opts = fp
-        self.results = {model: {f'{i}FP': {} for i in fp} for model in ['LinR', 'LogR', 'CART']}
+        
 
         # start creating data
         y = np.array(self.df[[y_n]])
@@ -176,7 +176,7 @@ class PredictiveAnalysis:
                 })
 
 
-    def model_learning(self, scopes: list, model: str = '', eta_: float = 0.01, alpha_: float = 0.1, lambda_: float = 0.5, iter_: int = 100, th_=0.1):
+    def model_learning(self, scopes: list, model: str = '', eta_: float = 0.001, alpha_: float = 1, lambda_: float = 0.5, iter_: int = 100, th_=0.1):
         """
         Define and return three types of figures
         - "self.compere_perf_fig": comparing performance with respect to evaluation metrics.
@@ -202,9 +202,10 @@ class PredictiveAnalysis:
         self.iter_ = iter_
         self.th_ = th_
  
-        # set spaces
-        self.be_tests[model]['ma'].update({ma: [] for ma in self.ma_opts})
-        self.be_tests[model]['sc'].update({sc: [] for sc in scopes})
+        # set spaces (initialize)
+        self.results = {model: {f'{i}FP': {} for i in self.fp_opts} for model in ['LinR', 'LogR', 'CART']}
+        self.be_tests[model]['ma'] = {ma: [] for ma in self.ma_opts}
+        self.be_tests[model]['sc'] = {sc: [] for sc in scopes}
         self.futures[model] = {f'{k1}FP': {f'{k2}MA': np.zeros((len(scopes), k1)) for k2 in self.ma_opts} for k1 in self.fp_opts}
 
         idx = 0
@@ -383,27 +384,24 @@ class PredictiveAnalysis:
 
         # define elastic net gradient
         def gradient(X, y, theta, n=sc, a_=self.alpha_, l_=self.lambda_):
-            # reshape
-            X = X.reshape(n, -1)
-            y_hat = np.dot(X, theta).reshape(-1, 1)
-            # error weighted feature
-            ewf = -2/n * np.dot(X.T, y - y_hat).reshape(1, -1)
+            # gradient
+            grad = -2/n * (np.dot(X.T, y - np.dot(X, theta.T))).T
             d_l1 = l_ * a_ * np.sign(theta)
             d_l2 = (1 - l_) * a_ * theta
-            return ewf + d_l1 + d_l2
+            return grad + d_l1 + d_l2
         
         # incremental learnings
-        for idx, i in enumerate(range(t, len(y), 1)):
+        for i, idx in enumerate(range(t, len(y), 1)):
             # get new data (X_i includes bias)
-            X_i, y_i = X[i] , y[i]
+            X_i, y_i = X[idx] , y[idx]
             # predicted variable
-            y_hats[idx] = np.dot(X_i, thetas[idx])
+            y_hats[i] = np.dot(X_i, thetas[i])
             # predicted error
-            errors[idx] =  (y_hats[idx] - y_i)
+            errors[i] =  (y_hats[i] - y_i)
             # define subsets of X and y
-            X_sub, y_sub = X[i-sc+1:i+1], y[i-sc+1:i+1]
+            X_sub, y_sub = X[idx-sc+1:idx+1], y[idx-sc+1:idx+1]
             # get the current theta
-            theta_ = thetas[idx]
+            theta_ = thetas[i:i+1]
             # iterations
             for _ in range(self.iter_):
                 # get the partial derivative
@@ -412,10 +410,10 @@ class PredictiveAnalysis:
                 if np.all(np.abs(grad) < self.th_):
                     break
                 # update the theta
-                theta_ -= self.eta_* grad.flatten()
+                theta_ -= self.eta_* grad
             
             # assign finialized theta
-            thetas[idx+1] = theta_
+            thetas[i+1] = theta_
 
         # calculate the future values
         future = np.sum(np.multiply(X[len(y):], thetas[len(y)-t:]), axis=1)
@@ -524,7 +522,6 @@ class PredictiveAnalysis:
             - Precsion (pre)
             - Recall (rec)
             - F1 Score (f1)
-            - Receiver Operating Characteristic (roc)
             - Area Under the ROC Curve (auc)
 
         Parameters:
@@ -655,7 +652,7 @@ class PredictiveAnalysis:
 
             fig.update_xaxes(title_text='Moving Averages', title_font={'color':'lightgrey'})
             fig.update_layout(
-                height=300, width=400, template='plotly_dark',
+                height=300, width=300, template='plotly_dark',
                 title=dict(text=self.titles[ms] if self.titles.get(ms) else ms,  xanchor="center", x=0.50),
                 showlegend=False, yaxis_title='', 
                 margin=go.layout.Margin(t=50, l=30, r=30, b=50)
@@ -696,9 +693,6 @@ class PredictiveAnalysis:
             idx1 = 0
             idx2 = -1
             names = ['RMSE', 'Adj-R2']
-        
-        #rmse_dict = {type_: [], 'theta': [], 'diff': []}
-        #r2_dict = {type_: [], 'theta': [], 'diff': []}
 
         for key in be_test:
             for matrix in be_test[key]:
@@ -743,7 +737,7 @@ class PredictiveAnalysis:
         sub = f"<br><span {self.SUB_CSS}> -- How meansures are changed by removing the impact of each coefficient</span>"
         fig.update_layout(height=400, width=800, template='plotly_dark', 
                         title_text=main + sub, yaxis_title="Difference",
-                        legend=dict(title_text=f'{be_type}:', orientation="h", yanchor="top", y=-0.1, xanchor="center", x=0.5),
+                        legend=dict(title_text=f'{be_type}:', orientation="h", yanchor="top", y=-0.25, xanchor="center", x=0.5),
                         margin=go.layout.Margin(t=80, b=60, l=80, r=40))
     
         return fig
