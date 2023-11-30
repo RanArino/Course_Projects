@@ -116,7 +116,7 @@ class PredictiveAnalysis:
         
         self.results = {model: {} for model in ['LinR', 'LogR', 'CART']}  # theta, y_hat, sigma for each scope and dataset
         self.futures = {model: {} for model in ['LinR', 'LogR', 'CART']}  # predicted values for each 'fp'
-        self.be_tests = {model: {'ma': {}, 'sc': {}} for model in ['LinR', 'LogR', 'CART']}  # backward elimination test results
+        self.be_tests = {model: {} for model in ['LinR', 'LogR', 'CART']}  # backward elimination test results
         self.perf_df = {'LinR': pd.DataFrame(data=[], columns=['SC', 'MA', 'FP', 'RMSE', 'SE', 'R2', 'Adj-R2']),
                         'LogR': pd.DataFrame(data=[], columns=['SC', 'MA', 'FP', 'ACC', 'PRE', 'REC', 'F1', 'AUC']),
                         'CART': pd.DataFrame(data=[], columns=['SC', 'MA', 'FP', 'RMSE', 'SE', 'R2', 'Adj-R2'])}
@@ -127,8 +127,7 @@ class PredictiveAnalysis:
 
         # initialize figures
         self.compere_perf_fig = None  # evaluation metrics
-        self.be_test_sc_fig = None  # backward elimination (scopes)
-        self.be_test_na_fig = None  # backward elimination (moving averages)
+        self.be_test_fig = None  # backward elimination (scopes)
         self.coef_dev_fig = None  # development of coefficient over time 
         
         # css style for sub title
@@ -187,8 +186,7 @@ class PredictiveAnalysis:
         """
         Define and return three types of figures
         - "self.compere_perf_fig": comparing performance with respect to evaluation metrics.
-        - "self.be_test_sc_fig": result of the backward elimination with respect to scopes.
-        - "self.be_test_ma_fig": result of the backward elimination with respect to moving averages.
+        - "self.be_test_fig": result of the backward elimination with respect to scopes.
         - "self.coef_dev_fig": development of thetas(coefficisnts) over time.
         
         Parameters:
@@ -212,8 +210,7 @@ class PredictiveAnalysis:
  
         # set spaces (initialize)
         self.results = {model: {f'{i}FP': {} for i in self.fp_opts} for model in ['LinR', 'LogR', 'CART']}
-        self.be_tests[model]['ma'] = {ma: [] for ma in self.ma_opts}
-        self.be_tests[model]['sc'] = {sc: [] for sc in scopes}
+        self.be_tests[model] = {sc: [] for sc in scopes}
         self.futures[model] = {f'{k1}FP': {f'{k2}MA': np.zeros((len(scopes), k1)) for k2 in self.ma_opts} for k1 in self.fp_opts}
 
         idx = 0
@@ -249,19 +246,16 @@ class PredictiveAnalysis:
                 ma_int = int(re.findall(r'\d+', ma)[0])
                 self.perf_df[model].loc[idx] = [sc, ma_int, fp] + list(be_test_df.iloc[0])
                 # store its result as NDArray
-                self.be_tests[model]['sc'][sc].append(np.array(be_test_df))
-                ma_idx = self.ma_opts[j // len(self.fp_opts)]
-                self.be_tests[model]['ma'][ma_idx].append(np.array(be_test_df))
+                self.be_tests[model][sc].append(np.array(be_test_df))
 
                 # increment idx
                 idx += 1
         
         self.compere_perf_fig = self.compare_perf(model)
-        self.be_test_sc_fig = self.backward_elimination(model, 'sc')
-        self.be_test_ma_fig = self.backward_elimination(model, 'ma')
+        self.be_test_sc_fig = self.backward_elimination(model)
         self.coef_dev_fig = self.coefs_develop(model)
 
-        return self.compere_perf_fig, self.be_test_sc_fig, self.be_test_ma_fig, self.coef_dev_fig
+        return self.compere_perf_fig, self.be_test_sc_fig, self.coef_dev_fig
 
 
     def detail_perf(self, model: str, ma: int, fp: int, sc: int):
@@ -661,7 +655,7 @@ class PredictiveAnalysis:
         return figs
 
 
-    def backward_elimination(self, model: str, type_: str):
+    def backward_elimination(self, model: str):
         """
         Evaluate the backward elimination for all models with the following focuses
             - RMSE and adjusted R2 for regression
@@ -670,14 +664,13 @@ class PredictiveAnalysis:
 
         Parameter:
         - 'model': either one of models: 'LinR', 'LogR', 'CART'
-        - 'type': either one of 'sc' or 'ma'
         """
-        be_test = self.be_tests[model][type_]
+        be_test = self.be_tests[model]
         # number of features; excluding bias term
         n = len(self.X_name) - 1
         # define dictionary for two measures
-        m1_d = {type_: [], 'theta': [], 'diff': []}  # rmse (reg), acc (cls)
-        m2_d = {type_: [], 'theta': [], 'diff': []}  # adj-r2 (reg), f1 (cls)
+        m1_d = {'sc': [], 'theta': [], 'diff': []}  # rmse (reg), acc (cls)
+        m2_d = {'sc': [], 'theta': [], 'diff': []}  # adj-r2 (reg), f1 (cls)
         # define location of focusing measures
         if model == 'LogR':
             idx1 = 0
@@ -691,8 +684,8 @@ class PredictiveAnalysis:
         for key in be_test:
             for matrix in be_test[key]:
                 # learning method
-                m1_d[type_] += [key] * (n)
-                m2_d[type_] += [key] * (n)
+                m1_d['sc'] += [key] * (n)
+                m2_d['sc'] += [key] * (n)
                 # add theta name
                 m1_d['theta'] += list(self.X_name[1:])
                 m2_d['theta'] += list(self.X_name[1:])
@@ -706,8 +699,8 @@ class PredictiveAnalysis:
         # plot data points
         m1_df = pd.DataFrame(m1_d)
         m2_df = pd.DataFrame(m2_d)
-        fig1 = px.strip(data_frame=m1_df, x='theta', y='diff', color=type_)
-        fig2 = px.strip(data_frame=m2_df, x='theta', y='diff', color=type_)
+        fig1 = px.strip(data_frame=m1_df, x='theta', y='diff', color='sc')
+        fig2 = px.strip(data_frame=m2_df, x='theta', y='diff', color='sc')
 
         # set figure
         fig = make_subplots(rows=1, cols=2, subplot_titles=names)
@@ -726,12 +719,11 @@ class PredictiveAnalysis:
         fig.update_traces(marker=dict(opacity=0.5, size=5))
 
         # add layout
-        be_type = 'Scopes' if type_ == 'sc' else 'Moving Averages'
-        main = f"Observe Backward Elimination in All Models With Repect to {be_type}" 
+        main = f"Observe Backward Elimination in All Models With Repect to Scopes" 
         sub = f"<br><span {self.SUB_CSS}> -- How meansures are changed by removing the impact of each coefficient</span>"
         fig.update_layout(height=400, width=800, template='plotly_dark', 
                         title_text=main + sub, yaxis_title="Difference",
-                        legend=dict(title_text=f'{be_type}:', orientation="h", yanchor="top", y=-0.25, xanchor="center", x=0.5),
+                        legend=dict(title_text='Scopes:', orientation="h", yanchor="top", y=-0.25, xanchor="center", x=0.5),
                         margin=go.layout.Margin(t=80, b=60, l=80, r=40))
     
         return fig
