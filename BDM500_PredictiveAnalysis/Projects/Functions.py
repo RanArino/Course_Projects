@@ -183,7 +183,7 @@ class PredictiveAnalysis:
                 })
 
 
-    def model_learning(self, scopes: list, model: str = '', eta_: float = 0.001, alpha_: float = 1, lambda_: float = 0.5, iter_: int = 100, th_=0.1):
+    def model_learning(self, scopes: list, model: str = '', eta_: float = 0.01, alpha_: float = 1, lambda_: float = 0.5, iter_: int = 100, th_=0.1):
         """
         Define and return three types of figures
         - "self.compere_perf_fig": comparing performance with respect to evaluation metrics.
