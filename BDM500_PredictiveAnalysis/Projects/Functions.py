@@ -182,7 +182,7 @@ class PredictiveAnalysis:
                 })
 
 
-    def model_learning(self, scopes: list, model: str = '', eta_: float = 0.01, alpha_: float = 1, lambda_: float = 0.5, iter_: int = 100, th_=0.1):
+    def model_learning(self, scopes: list, model: str = '', coef_name: list = [], eta_: float = 0.01, alpha_: float = 1, lambda_: float = 0.5, iter_: int = 100):
         """
         Define and return three types of figures
         - "self.compere_perf_fig": comparing performance with respect to evaluation metrics.
@@ -192,11 +192,11 @@ class PredictiveAnalysis:
         Parameters:
         - "scopes": how much previous data should be considered to update the parameters next step.
         - "model": either one of ['LinR', 'LogR', 'CART'].
+        - "coef_name": the list of feature names that are used for the model training.
         - "eta_": learning rate of each gradient descent.
         - "alpha_": degree of how strong the regularizations are.
         - "lambda_": balancer between l2 and l1 norm.
         - "iter_": maximum iteration of parameter updates at each step
-        - "th_": the threshold for early stopping; applied in gradient of each parameter.
         """
         # define variable
         self.sc_opts = scopes
@@ -206,7 +206,6 @@ class PredictiveAnalysis:
         self.alpha_ = alpha_
         self.lambda_ = lambda_
         self.iter_ = iter_
-        self.th_ = th_
  
         # set spaces (initialize)
         self.results = {model: {f'{i}FP': {} for i in self.fp_opts} for model in ['LinR', 'LogR', 'CART']}
@@ -217,9 +216,10 @@ class PredictiveAnalysis:
         # each scope
         for i, sc in enumerate(scopes):
             # each dataset
-            for j, d_key in enumerate(self.datasets.keys()):
+            for d_key in self.datasets.keys():
                 # acquire data
                 data = self.datasets[d_key]
+                
                 if model == 'LinR':
                     theta, y_hat, error, future = self.linear_reg(X=data['X'], y=data['y'], t=120, sc=sc)
 
@@ -252,10 +252,10 @@ class PredictiveAnalysis:
                 idx += 1
         
         self.compere_perf_fig = self.compare_perf(model)
-        self.be_test_sc_fig = self.backward_elimination(model)
+        self.be_test_fig = self.backward_elimination(model)
         self.coef_dev_fig = self.coefs_develop(model)
 
-        return self.compere_perf_fig, self.be_test_sc_fig, self.coef_dev_fig
+        return self.compere_perf_fig, self.be_test_fig, self.coef_dev_fig
 
 
     def detail_perf(self, model: str, ma: int, fp: int, sc: int):
@@ -375,8 +375,7 @@ class PredictiveAnalysis:
         """
 
         # define all matrix to be returned
-        k = len(self.X_name) # num of features (bias inclusive)
-        thetas = np.zeros((len(y[t:])+1, k))
+        thetas = np.zeros((len(y[t:])+1, X.shape[1]))
         y_hats = np.zeros((len(y[t:]), 1))
         errors = np.zeros((len(y[t:]), 1))
         
@@ -409,9 +408,6 @@ class PredictiveAnalysis:
             for _ in range(self.iter_):
                 # get the partial derivative
                 grad = gradient(X_sub, y_sub, theta_)
-                # define early stopping
-                if np.all(np.abs(grad) < self.th_):
-                    break
                 # update the theta
                 theta_ -= self.eta_* grad
             
@@ -467,7 +463,7 @@ class PredictiveAnalysis:
             return grad.T + alpha_ * (l1 + l2)
         
         # initialize matrics to store values at each step
-        thetas = np.zeros((len(y[t:])+1, 6))
+        thetas = np.zeros((len(y[t:])+1, X.shape[1]))
         y_hats = np.zeros((len(y[120:]), 1))
         errors = np.zeros((len(y[t:]), 1))
         # initial training 
@@ -497,9 +493,6 @@ class PredictiveAnalysis:
             for i in range(self.iter_):
                 # get the partial derivative
                 grad = gradient(X_sub, y_sub, theta_epoch, vfunc_weights(y_sub), self.alpha_, self.lambda_)
-                # define early stopping
-                if np.all(np.abs(grad) < self.th_):
-                    break
                 # update the theta
                 theta_epoch -= self.eta_* grad.flatten()
 
@@ -629,9 +622,9 @@ class PredictiveAnalysis:
 
     def compare_perf(self, model: str):
         # deine measures
-        measures = list(self.perf_df['LinR'].columns)[3:]
+        measures = list(self.perf_df[model].columns)[3:]
         # modity perf_df
-        perf_df = self.perf_df['LinR'].drop('SC', axis=1).groupby(['FP', 'MA']).mean()
+        perf_df = self.perf_df[model].drop('SC', axis=1).groupby(['FP', 'MA']).mean()
         #perf_df.columns = ['_'.join(col) for col in perf_df.columns]
         perf_df = perf_df.reset_index()
         perf_df['MA'] = perf_df['MA'].astype(str)
@@ -774,8 +767,8 @@ class PredictiveAnalysis:
 
         fig.update_layout(
             title='Impact of Economic Indicators on S&P500 Over Time',
-            legend=dict(title_text='Indicators', orientation='h', font_color='lightgray',
-                        x=-0.05, y=1.05, xanchor='left', yanchor='top'),
+            legend=dict(title_text='Indicators', orientation='h', font_size=11, font_color='lightgray',
+                        x=-0.025, y=1.05, xanchor='left', yanchor='top'),
             template='plotly_dark', hovermode="x unified",
             yaxis=dict(title_text='Strengths'),
             height=400, width=800, margin=go.layout.Margin(t=60, b=50, l=50, r=30),
