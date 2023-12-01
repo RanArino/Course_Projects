@@ -112,7 +112,7 @@ class PredictiveAnalysis:
         self.colors = ['#636EFA', '#EF553B', '#00CC96', '#AB63FA', '#FFA15A', '#19D3F3', '#FF6692', '#B6E880', '#FF97FF', '#FECB52']
         self.titles = {
             'LinR': 'Linear Regression', 'LogR': 'Logistic Regression',
-            'ACC': 'Accuracy', 'PRE': 'Precision', 'REC': 'Recall', 'F1': 'F1 score', 'AUC': 'Area Under ROC Curve'}
+            'ACC': 'Accuracy', 'PRE': 'Precision', 'REC': 'Recall', 'F1': 'F1 score', 'AUC': 'Area Under ROC'}
         
         self.results = {model: {} for model in ['LinR', 'LogR', 'CART']}  # theta, y_hat, sigma for each scope and dataset
         self.futures = {model: {} for model in ['LinR', 'LogR', 'CART']}  # predicted values for each 'fp'
