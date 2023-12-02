@@ -97,10 +97,12 @@ class PredictiveAnalysis:
         # initialize other variables
         self.X_name = []
         self.y_name = ''
+        self.X = np.array([])
+        self.y_num = np.array([])
+        self.y_cat = np.array([])
         self.ma_opts = []
         self.fp_opts = []
         self.sc_opts = []
-        self.datasets = {}
 
         # initialize hyperparameters
         self.eta_ = 0
@@ -117,9 +119,9 @@ class PredictiveAnalysis:
         self.results = {model: {} for model in ['LinR', 'LogR', 'CART']}  # theta, y_hat, sigma for each scope and dataset
         self.futures = {model: {} for model in ['LinR', 'LogR', 'CART']}  # predicted values for each 'fp'
         self.be_tests = {model: {} for model in ['LinR', 'LogR', 'CART']}  # backward elimination test results
-        self.perf_df = {'LinR': pd.DataFrame(data=[], columns=['SC', 'MA', 'FP', 'RMSE', 'SE', 'R2', 'Adj-R2']),
-                        'LogR': pd.DataFrame(data=[], columns=['SC', 'MA', 'FP', 'ACC', 'PRE', 'REC', 'F1', 'AUC']),
-                        'CART': pd.DataFrame(data=[], columns=['SC', 'MA', 'FP', 'RMSE', 'SE', 'R2', 'Adj-R2'])}
+        self.perf_df = {'LinR': pd.DataFrame(data=[], columns=['MA', 'FP', 'SC', 'RMSE', 'SE', 'R2', 'Adj-R2']),
+                        'LogR': pd.DataFrame(data=[], columns=['MA', 'FP', 'SC', 'ACC', 'PRE', 'REC', 'F1', 'AUC']),
+                        'CART': pd.DataFrame(data=[], columns=['MA', 'FP', 'SC', 'RMSE', 'SE', 'R2', 'Adj-R2'])}
 
         # initialize class
         self.poly = None
@@ -133,9 +135,13 @@ class PredictiveAnalysis:
         # css style for sub title
         self.SUB_CSS = 'style="font-size: 12.5px; color: lightgrey;"'
 
-    def create_data(self, X_n: list, y_n: str, ma: list, fp: list, poly_d: int = 1):
+    def create_data(self, X_n: list, y_n: str, ma: list[int], fp: list[int], poly_d: int = 1):
         """
-        Create the datasets -> self.datasets: dict
+        Create the datasets (defined variables are shown below)
+        - "self.X_name": list -> each feature name (including bias)
+        - "self.X": NDArray -> applying polynomial and Standarization
+        - "self.y_name": list -> each column's y name
+        - "self.y_num" & "self.y_cat": NDArray -> applying moving averages 
 
         Parameters:
         - "X_n": input feature names
@@ -146,40 +152,36 @@ class PredictiveAnalysis:
         - "poly_degree": degree of the polynomials
         """
         # update variables
-        self.y_name = y_n
         self.ma_opts = ma
         self.fp_opts = fp
-        
 
-        # start creating data
-        y = np.array(self.df[[y_n]])
-        for ma_i in self.ma_opts:
+        # X fetures matrix
+        # apply polynomial
+        self.poly = PolynomialFeatures(degree=poly_d, include_bias=True)
+        X_poly = self.poly.fit_transform(self.df[X_n].iloc[12:])
+        # store all X names after polynomial transform
+        self.X_name = self.poly.get_feature_names_out()
+        # standardization
+        self.scaler = Standardization()
+        X_ss = self.scaler.fit_transform(120, X_poly[:, 1:])
+        # add bias term
+        self.X = np.c_[np.ones(X_ss.shape[0]), X_ss]
+
+        # y matrix (each column shows different types of y)
+        self.y_name = [f'{y_n}_{ma}MA' for ma in self.ma_opts]
+        # initialize y matrix
+        self.y_num = np.full((self.X.shape[0], len(self.y_name)), np.nan)
+        self.y_cat = np.full((self.X.shape[0], len(self.y_name)), np.nan)
+        # original y
+        origin_y = np.array(self.df[y_n])
+        for c, ma in enumerate(self.ma_opts):
             # apply moving averages (ma is 0 or 1 -> no moving averages)
-            if ma_i < 2:
-                y_ma_i = y
-                ma_i = 1
+            if ma < 2:
+                self.y_num[:, c] = origin_y[12:]
+                self.y_cat[:, c] = np.where(self.y_num[:, c] > 0, 1, 0)
             else:
-                #X_ma_i = np.array([np.mean(X[i-ma_i:i], axis=0) for i in range(ma_i, len(X))])
-                y_ma_i = np.array([np.mean(y[i-ma_i:i], axis=0) for i in range(ma_i, len(y))])
-            
-            # apply polynomial
-            self.poly = PolynomialFeatures(degree=poly_d, include_bias=True)
-            X_poly = self.poly.fit_transform(self.df[X_n])
-            # store all X names after polynomial transform
-            self.X_name = self.poly.get_feature_names_out()
-            
-            # standardization
-            self.scaler = Standardization()
-            adjust = 0 if ma_i < 2 else ma_i 
-            X_ss = self.scaler.fit_transform(120, X_poly[adjust:, 1:])
-            # add bias term
-            X_ss_b = np.c_[np.ones(X_ss.shape[0]), X_ss]
-
-            # apply data shift
-            for fp_i in self.fp_opts:
-                self.datasets.update({
-                    f"{ma_i}MA_{fp_i}FP": {'X': X_ss_b, 'y': y_ma_i[fp_i:], 'y_cat': np.where(y_ma_i[fp_i:]>0, 1, 0)}
-                })
+                self.y_num[:, c] = np.array([np.mean(origin_y[i-ma:i], axis=0) for i in range(ma, len(origin_y)+1)])[12-ma+1:]
+                self.y_cat[:, c] = np.where(self.y_num[:, c] > 0, 1, 0)
 
 
     def model_learning(self, scopes: list, model: str = '', X_use: list = [], eta_: float = 0.01, alpha_: float = 1, lambda_: float = 0.5, iter_: int = 100):
@@ -211,57 +213,53 @@ class PredictiveAnalysis:
         self.alpha_ = alpha_
         self.lambda_ = lambda_
         self.iter_ = iter_
- 
+
         # set spaces (initialize)
         self.results = {model: {f'{i}FP': {} for i in self.fp_opts} for model in ['LinR', 'LogR', 'CART']}
         self.be_tests[model] = {sc: [] for sc in scopes}
         self.futures[model] = {f'{k1}FP': {f'{k2}MA': np.zeros((len(scopes), k1)) for k2 in self.ma_opts} for k1 in self.fp_opts}
 
         idx = 0
-        # each scope
-        for i, sc in enumerate(scopes):
-            # each dataset
-            for d_key in self.datasets.keys():
-                # acquire data
-                data = self.datasets[d_key]
+        # each moving average
+        for i, ma in enumerate(self.ma_opts):
+            # each future prediction
+            for fp in self.fp_opts:
+                # each scope
+                for j, sc in enumerate(self.sc_opts):
+                    # linear regression
+                    if model == 'LinR':
+                        theta, y_hat, error, future = self.linear_reg(X=self.X[:, self.X_use_idx], y=self.y_num[:, [i]], t=120, fp=fp, sc=sc)
+    
+                    elif model == 'LogR':
+                        theta, y_hat, error, future = self.logistic_reg(X=self.X[:, self.X_use_idx], y=self.y_cat[:, [i]], t=120, fp=fp, sc=sc)
 
-                if model == 'LinR':
-                    theta, y_hat, error, future = self.linear_reg(X=data['X'][:, self.X_use_idx], y=data['y'], t=120, sc=sc)
+                    elif model == 'CART':
+                        theta, y_hat, error, future = None, None, None, None
 
-                elif model == 'LogR':
-                    theta, y_hat, error, future = self.logistic_reg(X=data['X'][:, self.X_use_idx], y=data['y_cat'], t=120, sc=sc)
+                    else:
+                        raise TypeError('Choose one of following model names: "LinR", "LogR", and "CART".')
+                    
+                    # store all results
+                    self.results[model][f'{fp}FP'].update({f"{ma}MA_{sc}SC": {'theta': theta, 'y_hat': y_hat, 'error': error}})
+                    # store future values
+                    self.futures[model][f'{fp}FP'][f'{ma}MA'][j] = future
 
-                elif model == 'CART':
-                    theta, y_hat, error, future = None, None, None, None
+                    # get test result of backward elimination
+                    y_vec = self.y_cat[:, [i]] if model == 'LogR' else self.y_num[:, [i]]
+                    be_test_df = self.evaluation(model, self.X[:, self.X_use_idx], y_vec, 120, theta, y_hat, error, fp)
+                    # retrienve only performance without any changes in each coefficient
+                    self.perf_df[model].loc[idx] = [ma, fp, sc] + list(be_test_df.iloc[0])
+                    # store its result as NDArray
+                    self.be_tests[model][sc].append(np.array(be_test_df))
 
-                else:
-                    raise TypeError('Choose one of following model names: "LinR", "LogR", and "CART".')
-                
-                # get moving average and future performance values from dataset keys
-                ma, fp = d_key.split('_')
-                # store all data
-                self.results[model][fp].update({f"{ma}_{sc}SC": {'theta': theta, 'y_hat': y_hat, 'error': error}})
-                # store future values
-                self.futures[model][fp][ma][i] = future
+                    # increment idx
+                    idx += 1
 
-                # get test result of backward elimination
-                y = data['y_cat'] if model == 'LogR' else data['y']
-                be_test_df = self.evaluation(model, data['X'][:, self.X_use_idx], y, 120, theta, y_hat, error)
-                # retrienve only performance without any changes in each coefficient
-                ma_int = int(re.findall(r'\d+', ma)[0])
-                self.perf_df[model].loc[idx] = [sc, ma_int, fp] + list(be_test_df.iloc[0])
-                # store its result as NDArray
-                self.be_tests[model][sc].append(np.array(be_test_df))
-
-                # increment idx
-                idx += 1
-        
         self.compere_perf_fig = self.compare_perf(model)
         self.be_test_fig = self.backward_elimination(model)
         self.coef_dev_fig = self.coefs_develop(model)
 
         return self.compere_perf_fig, self.be_test_fig, self.coef_dev_fig
-
 
     def detail_perf(self, model: str, ma: int, fp: int, sc: int):
         """
@@ -353,7 +351,7 @@ class PredictiveAnalysis:
         return fig1, fig2
 
 
-    def linear_reg(self, X, y, t, sc):
+    def linear_reg(self, X, y, t, fp, sc):
         """
         Return the following four matrix (dtype: np.array)
         - "thetas"  -> parameters (intercept + coefficients) at each step
@@ -365,29 +363,19 @@ class PredictiveAnalysis:
         - "X": np.array -> independent variables
         - "y": np.array -> target variables
         - "t": int -> number of data that were used for the initial parameter creation.
+        - "fp": the performance of certain months of future
         - "sc": int -> scope of the latest data for parameter updates
-
-
-        Brief Steps:
-        - Initialize matries for thetas, y_hats, errors.
-        - Apply a given number of data ("t") to the mutiple linear regression (normal equation).
-        - Define the initial parameters from the trained model.
-        - At each step (total steps are len(y) - t):
-            - Get a single pair of unfamilar data; both X and y.
-            - Predict the target ("y_hats") based on the latest parameters("theta[i]").
-            - Calculate the difference between actual and predicted values; "error[i]".
-            - Update parameters for the next step ("theta[i+1]").
+        
         """
-
         # define all matrix to be returned
-        thetas = np.zeros((len(y[t:])+1, X.shape[1]))
-        y_hats = np.zeros((len(y[t:]), 1))
-        errors = np.zeros((len(y[t:]), 1))
+        thetas = np.full((X.shape[0]-t, X.shape[1]), np.nan)
+        y_hats = np.full((X.shape[0]-t, 1), np.nan)
+        errors = np.full((X.shape[0]-t, 1), np.nan)
         
         # initial training
-        init_X, init_y = X[0:t], y[0:t]
+        init_X, init_y = X[0:t], y[fp:t+fp]
         # obtain the initial parameters based on normal equation form
-        thetas[0] = np.linalg.inv(init_X.T.dot(init_X)).dot(init_X.T).dot(init_y).reshape(1,-1)
+        thetas[:fp] = np.linalg.inv(init_X.T.dot(init_X)).dot(init_X.T).dot(init_y).reshape(1,-1)
 
         # define elastic net gradient
         def gradient(X, y, theta, n=sc, a_=self.alpha_, l_=self.lambda_):
@@ -396,36 +384,40 @@ class PredictiveAnalysis:
             d_l1 = l_ * a_ * np.sign(theta)
             d_l2 = (1 - l_) * a_ * theta
             return grad + d_l1 + d_l2
-        
-        # incremental learnings
-        for i, idx in enumerate(range(t, len(y), 1)):
-            # get new data (X_i includes bias)
-            X_i, y_i = X[idx] , y[idx]
-            # predicted variable
-            y_hats[i] = np.dot(X_i, thetas[i])
-            # predicted error
-            errors[i] =  (y_hats[i] - y_i)
-            # define subsets of X and y
-            X_sub, y_sub = X[idx-sc+1:idx+1], y[idx-sc+1:idx+1]
+
+        # incremental learnings (as long as actual target is available)
+        i = 0
+        while t+fp < len(y):
+            # get new data at the time 't'
+            X_t, y_t = X[t] , y[t+fp]
+            # predicted variable of 'fp' months ahead
+            y_hats[i+fp] = np.dot(X_t, thetas[i])
+            # predicted error 
+            errors[i+fp] = (y_hats[i+fp] - y_t)
+            # define subset of X and y
+            X_sub, y_sub = X[t-sc+1:t+1], y[t+fp-sc+1:t+fp+1]
             # get the current theta
-            theta_ = thetas[i:i+1]
+            theta_ = thetas[[i]]
             # iterations
             for _ in range(self.iter_):
-                # get the partial derivative
+                # get the gradient of MSE with elastic net regularization
                 grad = gradient(X_sub, y_sub, theta_)
                 # update the theta
                 theta_ -= self.eta_* grad
-            
             # assign finialized theta
-            thetas[i+1] = theta_
+            thetas[i+fp] = theta_
+
+            # increment t and idx
+            t += 1
+            i += 1
 
         # calculate the future values
-        future = np.sum(np.multiply(X[len(y):], thetas[len(y)-t:]), axis=1)
-
+        future = np.sum(np.multiply(X[-fp:], thetas[i:]), axis=1)
+        
         return thetas, y_hats, errors, future
 
 
-    def logistic_reg(self, X, y, t, sc):
+    def logistic_reg(self, X, y, t, fp, sc):
         """
         Return the following five matrix (dtype: np.array)
         - "thetas"  -> parameters (intercept + coefficients) at each step
@@ -442,16 +434,6 @@ class PredictiveAnalysis:
         - "y": np.array -> target variables (shouold be categorical)
         - "t": int -> number of data that were used for the initial parameter creation.
         - "sc": int -> scope of the latest data for parameter updates.
-
-        Brief Steps:
-        - Initialize all matries to store ithe ncrementally updated values.
-        - Apply a given number of data ("t") to the mutiple linear regression (normal equation).
-        - Define the initial parameters from the trained model.
-        - At each step (total steps are len(y) - t):
-            - Get a single pair of unfamilar data; both X and y.
-            - Predict the target ("y_hats") based on the latest parameters("theta[i]").
-            - Calculate the difference between actual and predicted values; "error[i]".
-            - Update parameters for the next step ("theta[i+1]").
         """
         # define sigmoid function
         def sigmoid(h):
@@ -468,48 +450,61 @@ class PredictiveAnalysis:
             return grad.T + alpha_ * (l1 + l2)
         
         # initialize matrics to store values at each step
-        thetas = np.zeros((len(y[t:])+1, X.shape[1]))
-        y_hats = np.zeros((len(y[120:]), 1))
-        errors = np.zeros((len(y[t:]), 1))
+        thetas = np.full((X.shape[0]-t, X.shape[1]), np.nan)
+        y_hats = np.full((X.shape[0]-t, 1), np.nan)
+        errors = np.full((X.shape[0]-t, 1), np.nan)
         # initial training 
+        init_X, init_y = X[0:t], y[fp:t+fp]
         logit = LogisticRegression(fit_intercept=False, class_weight='balanced')
-        logit.fit(X[:t], y[:t].flatten())
+        logit.fit(init_X, init_y.flatten())
         # set initial parameters
-        thetas[0] = logit.coef_
-        # define class weights
-        weights = {u: len(X) / (2*np.bincount(y.flatten())[u]) for u in np.unique(y)}
-        # define the vectorized function to converting class labels to weights
-        vfunc_weights = np.vectorize(lambda x: weights[x])
+        thetas[:fp] = logit.coef_
 
-        # start incremental learning
-        for idx, i in enumerate(range(120, len(y), 1)):
-            # apply sigmoid function
-            y_hats[idx] = sigmoid(np.dot(X[i:i+1], thetas[idx]))
-            # actual value
-            y_act = y[i][0]
+        # incremental learnings (as long as actual target is available)
+        i = 0
+        # counting unique numbers
+        y_ex_nan = y[~np.isnan(y)]
+        count_labels = {k: np.sum(y_ex_nan[:t] == k) for k in np.unique(y_ex_nan)}
+        while t+fp < len(y):
+            # get new data at the time 't'
+            X_t, y_t = X[[t]] , y[t+fp]
+            # predicted variable of 'fp' months ahead
+            y_hats[i+fp] = sigmoid(np.dot(X_t, thetas[i]))
+            # predicted error 
+            errors[i+fp] = (y_hats[i+fp] - y_t)
+            # increment counts of unique labels
+            count_labels[y_t[0]] += 1
+            # calculate weights
+            weights = {k: sum(count_labels.values()) / (2 * v) for k, v in count_labels.items()}
+            w_vect = np.vectorize(weights.get)
             # logistic loss
-            y_proba = {0: 1-y_hats[idx], 1: y_hats[idx]}
-            errors[idx] = -1 * weights[y_act] * np.log(y_proba[y_act])
-
-            # subset pf X and y
-            X_sub, y_sub = X[i+1-sc: i+1], y[i+1-sc: i+1]
-            # update parameter
-            theta_epoch = thetas[idx]
-            for i in range(self.iter_):
-                # get the partial derivative
-                grad = gradient(X_sub, y_sub, theta_epoch, vfunc_weights(y_sub), self.alpha_, self.lambda_)
+            y_proba = {0: 1-y_hats[i+fp], 1: y_hats[i+fp]}
+            errors[i+fp] = -1 * weights[y_t[0]] * np.log(y_proba[y_t[0]])
+            # define subset of X and y
+            X_sub, y_sub = X[t-sc+1:t+1], y[t+fp-sc+1:t+fp+1]
+            # get the current theta
+            theta_ = thetas[[i]]
+            # iterations
+            for _ in range(self.iter_):
+                # get the gradient
+                grad = gradient(X_sub, y_sub, theta_, w_vect(y_sub), self.alpha_, self.lambda_)
                 # update the theta
-                theta_epoch -= self.eta_* grad.flatten()
+                theta_ -= self.eta_* grad.flatten()
+           
+            # assign finialized theta
+            thetas[i+fp] = theta_
 
-            thetas[idx+1] = theta_epoch
+            # increment t and idx
+            t += 1
+            i += 1
 
         # predict the future labels
-        future = sigmoid(np.dot(X[len(y):], thetas[-1]))
+        future = sigmoid(np.sum(np.multiply(X[-fp:], thetas[i:]), axis=1))
 
-        return thetas, y_hats, errors, future
+        return thetas, y_hats, errors, future 
+        
 
-
-    def evaluation(self, model, X, y, t, thetas, y_hats, errors):
+    def evaluation(self, model, X, y, t, thetas, y_hats, errors, fp):
         """
         Return the data frame; the following measureas:
         (1): Numerical Target Value
@@ -536,10 +531,10 @@ class PredictiveAnalysis:
 
         Requirement: len(y[t:]) == len(y_hats)
         """
-        #  number of observations and features (excluding bias)
-        n, k = len(y_hats), X.shape[1] - 1
-        # define feature matrix and target based on "t"
-        X_, y_ = X[t:n+t], y[t:]
+        # define feature matrix and target that were used for incremental learning
+        X_, y_ = X[t:-fp], y[t+fp:]
+        #  number of observations features (excluding bias)
+        n, k = X_.shape[0], X.shape[1] - 1
         # assign the data frame index and columns
         rows = ['original'] + [f'theta{i}=0' for i in self.X_use_idx[1:]]
 
@@ -555,11 +550,11 @@ class PredictiveAnalysis:
             for i in range(k+1):
                 # simply applying the given error
                 if i == 0:
-                    error_ = errors
+                    error_ = errors[fp:]
                 # conduct the backward elimination
                 else:
                     # copy the parameters matrix
-                    theta_ = thetas[:n].copy()
+                    theta_ = thetas[:-fp].copy()
                     # change a particular coefficient to 0 arbitrarily.
                     theta_[:, i] = 0
                     # based on revised parameters, get the predicted value
@@ -601,11 +596,11 @@ class PredictiveAnalysis:
             for i in range(k+1):
                 # simply applying the predicted label
                 if i == 0:
-                    y_hats_ = np.where(y_hats >= 0.5, 1, 0)
+                    y_hats_ = np.where(y_hats[fp:] >= 0.5, 1, 0)
                 # conduct the backward elimination
                 else:
                     # copy the parameters matrix
-                    theta_ = thetas[:n].copy()
+                    theta_ = thetas[:-fp].copy()
                     # change a particular coefficient to 0 arbitrarily.
                     theta_[:, i] = 0
                     # based on revised parameters, get the predicted value
@@ -737,24 +732,28 @@ class PredictiveAnalysis:
         # get the minimum theta dimentions (ecluding bias term)
         max_fp, max_ma, first_sc = max(self.fp_opts), max(self.ma_opts), self.sc_opts[0]
         thetas_dim = self.results[model][f'{max_fp}FP'][f'{max_ma}MA_{first_sc}SC']['theta'][:, 1:].shape
+        min_thetas_dim = (thetas_dim[0]-max_fp, thetas_dim[1])
         # get the last date of data frame
         last_date = pd.to_datetime(self.df['Date'].iloc[-1])
         # get the next month last date
         next_month_last = last_date + relativedelta(months=1)
         # define start date
-        start_date = next_month_last - relativedelta(months=thetas_dim[0]-1)
+        start_date = next_month_last - relativedelta(months=min_thetas_dim[0]-1)
         # define date ranges
         date_ranges = np.array(pd.date_range(start_date, next_month_last, freq='M'))
         # define data frame
         thetas_df = pd.DataFrame({"Date": date_ranges})
 
         # initialize thetas data
-        thetas_data = np.zeros(thetas_dim)
+        thetas_data = np.zeros(min_thetas_dim)
         denominator = 0
         # get all thetas from multiple models
         for k1 in self.results[model].keys():
+            fp = int(k1[0])
             for k2 in self.results[model][k1].keys():
-                thetas_data += self.results[model][k1][k2]['theta'][-thetas_dim[0]:, 1:]
+                # index start and end
+                s, e = max_fp - fp+1, thetas_dim[0] - fp + 1
+                thetas_data += self.results[model][k1][k2]['theta'][s:e, 1:]
                 denominator += 1
 
         # calculate mean
@@ -779,4 +778,4 @@ class PredictiveAnalysis:
             )
         
         return fig
-    
+
