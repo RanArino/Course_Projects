@@ -183,6 +183,17 @@ class PredictiveAnalysis:
                 self.y_num[:, c] = np.array([np.mean(origin_y[i-ma:i], axis=0) for i in range(ma, len(origin_y)+1)])[12-ma+1:]
                 self.y_cat[:, c] = np.where(self.y_num[:, c] > 0, 1, 0)
 
+        # create new dataframe
+        new_df_info = {'Date': self.df['Date'].iloc[12:]}
+        new_df_info.update({
+            **{key: self.X[:, i+1] for i, key in enumerate(self.X_name[1:])},
+            **{f'{key}_num': self.y_num[:, i] for i, key in enumerate(self.y_name)},
+            **{f'{key}_cat': self.y_cat[:, i] for i, key in enumerate(self.y_name)}
+        }) # type: ignore
+
+        new_df = pd.DataFrame(new_df_info)
+        return new_df     
+
 
     def model_learning(self, scopes: list, model: str = '', X_use: list = [], eta_: float = 0.01, alpha_: float = 1, lambda_: float = 0.5, iter_: int = 100):
         """
@@ -379,8 +390,16 @@ class PredictiveAnalysis:
 
         # define elastic net gradient
         def gradient(X, y, theta, n=sc, a_=self.alpha_, l_=self.lambda_):
+            """
+            X: (n, k)
+            y: (n, k)
+            theta: (k, 1)
+            
+            'n' is number of the recent observations (scopes)
+            'k' is number of parameters (including bias term)
+            """
             # gradient
-            grad = -2/n * (np.dot(X.T, y - np.dot(X, theta.T))).T
+            grad = -2/n * (np.dot(X.T, y - np.dot(X, theta)))
             d_l1 = l_ * a_ * np.sign(theta)
             d_l2 = (1 - l_) * a_ * theta
             return grad + d_l1 + d_l2
@@ -396,16 +415,16 @@ class PredictiveAnalysis:
             errors[i+fp] = (y_hats[i+fp] - y_t)
             # define subset of X and y
             X_sub, y_sub = X[t-sc+1:t+1], y[t+fp-sc+1:t+fp+1]
-            # get the current theta
-            theta_ = thetas[[i]]
+            # get the theta at the time t
+            theta_ = thetas[[i]].reshape(-1, 1)
             # iterations
             for _ in range(self.iter_):
                 # get the gradient of MSE with elastic net regularization
                 grad = gradient(X_sub, y_sub, theta_)
                 # update the theta
                 theta_ -= self.eta_* grad
-            # assign finialized theta
-            thetas[i+fp] = theta_
+            # finally update theta in certain future ahead
+            thetas[i+fp] = theta_.reshape(1, -1)
 
             # increment t and idx
             t += 1
@@ -419,7 +438,7 @@ class PredictiveAnalysis:
 
     def logistic_reg(self, X, y, t, fp, sc):
         """
-        Return the following five matrix (dtype: np.array)
+        Return the following matrix (dtype: np.array)
         - "thetas"  -> parameters (intercept + coefficients) at each step
         - dictionary: predicted y values:
             - "cat" key: "y_preds_c" -> predicted labels at each step
@@ -440,14 +459,21 @@ class PredictiveAnalysis:
             return 1 / (1 + np.exp(-h))
 
         # calculate the gradient vector
-        def gradient(X, y, theta, w, alpha_, lambda_):
-            m = len(y)
-            preds = sigmoid(np.dot(X, theta.reshape(-1,1)))
-            grad = -np.dot(X.T, np.multiply(y - preds, w)) / m
-            l1 = lambda_ * np.sign(theta)
-            l2 = (1 - lambda_) * theta
+        def gradient(X, y, theta, w, n=sc, a_=self.alpha_, l_=self.lambda_):
+            """
+            X: (n, k)
+            y: (n, k)
+            theta: (k, 1)
+            
+            'n' is number of the recent observations (scopes)
+            'k' is number of parameters (including bias term)
+            """
+            preds = sigmoid(np.dot(X, theta))
+            grad = -1/n * np.dot(X.T, np.multiply(y - preds, w))
+            l1 = l_ * np.sign(theta)
+            l2 = (1 - l_) * theta
 
-            return grad.T + alpha_ * (l1 + l2)
+            return grad + (a_/n) * (l1 + l2)
         
         # initialize matrics to store values at each step
         thetas = np.full((X.shape[0]-t, X.shape[1]), np.nan)
@@ -483,16 +509,16 @@ class PredictiveAnalysis:
             # define subset of X and y
             X_sub, y_sub = X[t-sc+1:t+1], y[t+fp-sc+1:t+fp+1]
             # get the current theta
-            theta_ = thetas[[i]]
+            theta_ = thetas[[i]].reshape(-1, 1)
             # iterations
             for _ in range(self.iter_):
                 # get the gradient
-                grad = gradient(X_sub, y_sub, theta_, w_vect(y_sub), self.alpha_, self.lambda_)
+                grad = gradient(X_sub, y_sub, theta_, w_vect(y_sub))
                 # update the theta
-                theta_ -= self.eta_* grad.flatten()
+                theta_ -= self.eta_* grad
            
             # assign finialized theta
-            thetas[i+fp] = theta_
+            thetas[i+fp] = theta_.reshape(1, -1)
 
             # increment t and idx
             t += 1
