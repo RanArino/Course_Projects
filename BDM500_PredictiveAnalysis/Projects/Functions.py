@@ -395,11 +395,9 @@ class PredictiveAnalysis:
         # the highest frequency (max count)
         hist, _ = np.histogram(error[~np.isnan(error)], bins=20)
         max_freq= max(hist)
-        print(max_freq)
         # scale change(max_freq is assigned 70% of the final plots)
         total_obs = len(x_date)
         scale_chg = (total_obs*max_freq / (total_obs*0.7)) / total_obs
-        print(scale_chg)
         # define figure
         fig2 = go.Figure() 
         # adding fig data
