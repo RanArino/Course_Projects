@@ -3,6 +3,7 @@ from numpy.typing import NDArray
 import pandas as pd
 import re
 from dateutil.relativedelta import relativedelta
+import scipy.stats as stats
 
 import plotly.express as px
 import plotly.graph_objects as go
@@ -301,92 +302,138 @@ class PredictiveAnalysis:
 
         return self.compere_perf_fig, self.be_test_fig, self.coef_dev_fig
 
-    def detail_perf(self, model: str, ma: int, fp: int, sc: int):
+
+    def detail_perf(self, model: str, ma: int, fp: int|str = 'mean', sc: int|str = 'mean'):
         """
-        Return two plotly chart:
-        - Line chart: Comparing the predicted and actual value.
-        - Mix chart:  Distribution of the predicted errors by histogram and scatter plots.
+            Return two plotly chart:
+            - Line chart: Comparing the predicted and actual value.
+            - Mix chart:  Distribution of the predicted errors by histogram and scatter plots.
 
-        Return: plotly.graph_objs._figure.Figure
+            Return: plotly.graph_objs._figure.Figure
 
         """
-        # get the results of model
-        result = self.results[model]
-
-        # get model and data
-        d_name = f'{ma}MA_{fp}FP'
-        data = self.datasets[d_name]
-        _, y_hat, error = tuple(result[f'{fp}FP'][f'{ma}MA_{sc}SC'].values())
+        # get pred_df
+        pred_df = self.pred_df[model].set_index("Date")
         
-        # number of observations
-        num_obs = len(y_hat)
-        date = self.df['Date'][-num_obs:].values
-        actual = data['y'][-num_obs:].flatten()
-        predict = y_hat.flatten()
-
-        # Figure 01 - Line Chart
+        # (1): Line Charts
         fig1 = go.Figure()
-        x_date = pd.to_datetime(date)
+        # common x-axis data
+        x_date = pd.to_datetime(pred_df.index.values)
+        # actual value
+        actual = pred_df[f'Act_{ma}MA']
         fig1.add_trace(go.Scatter(x=x_date, y=actual, mode='lines', name='Actual'))
+
+        # predictions
+        #  if both 'fp' and 'sc' are number
+        if fp != 'mean' and sc != 'mean':
+            predict = pred_df[f'Pred_{ma}MA_{fp}FP_{sc}SC']
+            sub_title1 = f'<br><span {self.SUB_CSS}> --Adjusted parameters to predict a target price {fp} month(s) ahead.</span>'
+            sub_title2 = f'<br><span {self.SUB_CSS}> --Updated parameters by the recent {sc} month(s) of data at each step.</span>'
+        #  if only sc is 'mean
+        elif fp != 'mean' and sc == 'mean':
+            filter_cols = [c for c in pred_df.columns if c.startswith(f'Pred_{ma}MA_{fp}FP')]
+            predict = pred_df[filter_cols].mean(axis=1)
+            sub_title1 = f'<br><span {self.SUB_CSS}> --Adjusted parameters to predict a target price {fp} month(s) ahead.</span>'
+            sub_title2 = f'<br><span {self.SUB_CSS}> --Aggregated different prediction results generated from all scopes.</span>'
+        #  if only fp is 'mean'
+        elif fp == 'mean' and sc != 'mean':
+            filter_cols = [c for c in pred_df.columns 
+                        if c.startswith(f'Pred_{ma}MA') and c.endswith(f'_{sc}SC')]
+            predict = pred_df[filter_cols].mean(axis=1)
+            sub_title1 = f'<br><span {self.SUB_CSS}> --Aggregated multiple results generated from all defined future months ahead.</span>'
+            sub_title2 = f'<br><span {self.SUB_CSS}> --Updated parameters by the recent {sc} month(s) of data at each step.</span>'
+        #  else; both are 'mean'
+        else:
+            filter_cols = [c for c in pred_df.columns if c.startswith(f'Pred_{ma}MA')]
+            predict = pred_df[filter_cols].mean(axis=1)
+            sub_title1 = f'<br><span {self.SUB_CSS}> --Aggregated all results from different futures ahead & scopes.</span>'
+            sub_title2 = f'<br><span {self.SUB_CSS}> --Bands showing three standard deviations based on all results. </span>'
+            # adding bands
+            sigma_3 = (pred_df[filter_cols].std(axis=1) * 3).values
+            fig1.add_traces([
+                go.Scatter(
+                    name='+-3 sigma',
+                    x=x_date, y=predict - sigma_3, 
+                    mode='lines', line=dict(width=0, color='rgba(255, 255, 255, 0)'),
+                    legendgroup='bands', hovertemplate='Lower: %{y:.2f}<extra></extra>', showlegend=False
+                ),
+                go.Scatter(
+                    name='+-3 sigma', 
+                    x=x_date, y=predict + sigma_3,
+                    mode='lines', line=dict(width=0, color='rgba(255, 255, 255, 0)'),
+                    fillcolor='rgba(255, 255, 255, 0.2)', fill='tonexty', 
+                    legendgroup='bands', hovertemplate='Upper: %{y:.2f}<extra></extra>', showlegend=True
+                ),
+            ])
+
+        # drawing line
         fig1.add_trace(go.Scatter(x=x_date, y=predict, mode='lines', name='Predict',
                                 line=dict(color='lightgreen')))
-
-        # future values
-        y, m = x_date[-1].year, x_date[-1].month - 1
-        months = [(i % 12) + 1 for i in range(m, m+fp+1)]
-        add_on = []
-        for i, month in enumerate(months):
-            # update the year
-            if i != 1 and month == 1:
-                y += 1
-            add_on.append(str(pd.Timestamp(y, month, 1) + pd.offsets.MonthEnd(1)).split()[0])
-        # get the index of a scope
-        sc_idx = self.sc_opts.index(sc)
-        # get the future values
-        future_vals = self.futures[model][f'{fp}FP'][f'{ma}MA'][sc_idx]
-        fig1.add_trace(go.Scatter(
-            x=pd.to_datetime(add_on), y=np.concatenate((y_hat[-1], future_vals)), 
-            mode='lines', name='Future', line=dict(color='lightgreen', dash='dot')
-            ))
         
         # layout
-        add_title = '' if fp == 0 else f' in {fp}-Month '
-        main_title = 'Prediction of %YoY S&P500' + add_title + 'Based on Current Data'
-        sub_title = f'<br><span {self.SUB_CSS}> --Model predicts {ma}-month moving averaged target prices</span>'
+        if ma == 1:
+            add_title = '(Actual Prices)'
+        else:
+            add_title = f'({ma}-Month Moving Averaged Prices)'
+        main_title = 'Prediction of %YoY S&P500 ' + add_title
         fig1.update_layout(
-            height=400, width=700, template='plotly_dark', hovermode="x unified", title=main_title+sub_title, 
+            height=400, width=700, template='plotly_dark', hovermode="x unified", 
+            title=dict(text=main_title+sub_title1+sub_title2, y=0.90), 
             legend=dict(orientation="h", yanchor="bottom", y=0.05, xanchor="left", x=0.0),
-            margin=go.layout.Margin(l=80, r=40, b=40, t=80))
+            margin=go.layout.Margin(l=80, r=40, b=40, t=100)
+        )
+        fig1.update_traces(
+            selector=dict(name='3 sigma'),
+            line=dict(color='rgba(255, 255, 255, 0.2)'), 
+            overwrite=True 
+        )
 
-        # Figure 02 - Dostribution
-        fig2 = go.Figure()
-        # Scatter
-        fig2.add_trace(
-            go.Scatter(x=[i / 3 for i in range(len(error))], y=error.flatten(), mode='markers', 
-                    marker=dict(color='red', opacity=0.5), name='Error',
-                    hoverinfo='name+y+text',
-                    text=["Date: " + d.strftime("%b %Y") for d in fig1.data[0]['x']],
-                    ),
-        )
-        # histogram
-        fig2.add_trace(
-            go.Histogram(y=error.flatten(), nbinsy=20, marker=dict(color='grey', opacity=0.5), 
-                        histnorm='', name='Distribution'),
-        )
+
+        # (2): Distribution Charts
+        # calculate error
+        error = (actual - predict).values
+        # the highest frequency (max count)
+        hist, _ = np.histogram(error[~np.isnan(error)], bins=20)
+        max_freq= max(hist)
+        print(max_freq)
+        # scale change(max_freq is assigned 70% of the final plots)
+        total_obs = len(x_date)
+        scale_chg = (total_obs*max_freq / (total_obs*0.7)) / total_obs
+        print(scale_chg)
+        # define figure
+        fig2 = go.Figure() 
+        # adding fig data
+        fig2.add_traces([
+            # distribution plots
+            go.Histogram(
+                y=error, nbinsy=20, marker=dict(color='grey', opacity=0.5), 
+                histnorm='', name='Distribution'
+            ),
+            # error plots
+            go.Scatter(
+                x=[i * scale_chg for i in range(len(x_date))], y=error, mode='markers', 
+                marker=dict(color='red', opacity=0.5), name='Error',
+                hoverinfo='name+y+text', text=["Date: " + d.strftime("%b %Y") for d in fig1.data[0]['x']],
+            ),
+        ])
+        
         # lauput
         main = "Distribution of the Predicted Errors"
         sub = f"<br><span {self.SUB_CSS}> -- Histogram shows the frequency of each predicted error.</span>"
         fig2.update_layout(
             height=400, width=700, template='plotly_dark', hovermode="x unified",
-            title=main+sub, xaxis_title='Time Ranges', yaxis_title='YoY Growth (%)',
+            title=main+sub, yaxis_title='YoY Growth (%)',
             legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="right", x=0.95),
             margin=go.layout.Margin(l=80, r=40, b=40, t=80))
 
         # Filter years that are divisible by 5 and month is January
-        str_dates = x_date[(x_date.year % 5 == 0) & (x_date.month == 1)].strftime('%Y-%m-%d')
-        # get the inde numbers 
-        idx_dates = np.where(np.isin(date, str_dates))[0].tolist()
-        fig2.update_xaxes(tickmode='array', tickvals=[i/3 for i in idx_dates], ticktext=[i[:4] for i in str_dates])
+        ticks_dates = x_date[(x_date.year % 5 == 0) & (x_date.month == 1)]
+
+        # get the index numbers 
+        idx_dates = np.where(np.isin(x_date, ticks_dates))[0].tolist()
+        fig2.update_xaxes(tickmode='array', 
+                        tickvals=[i*scale_chg for i in idx_dates], 
+                        ticktext=[i[:4] for i in ticks_dates.strftime('%Y-%m-%d')])
 
         return fig1, fig2
 
@@ -441,7 +488,7 @@ class PredictiveAnalysis:
             # predicted variable of 'fp' months ahead
             y_hats[i+fp] = np.dot(X_t, thetas[i])
             # predicted error 
-            errors[i+fp] = (y_hats[i+fp] - y_t)
+            errors[i+fp] = (y_t - y_hats[i+fp])
             # define subset of X and y
             X_sub, y_sub = X[t-sc+1:t+1], y[t+fp-sc+1:t+fp+1]
             # get the theta at the time t
@@ -525,8 +572,6 @@ class PredictiveAnalysis:
             X_t, y_t = X[[t]] , y[t+fp]
             # predicted variable of 'fp' months ahead
             y_hats[i+fp] = sigmoid(np.dot(X_t, thetas[i]))
-            # predicted error 
-            errors[i+fp] = (y_hats[i+fp] - y_t)
             # increment counts of unique labels
             count_labels[y_t[0]] += 1
             # calculate weights
