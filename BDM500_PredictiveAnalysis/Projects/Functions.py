@@ -95,6 +95,7 @@ class PredictiveAnalysis:
     def __init__(self, df: pd.DataFrame):
         self.df = df
         # initialize other variables
+        self.new_df = pd.DataFrame()
         self.X_name = []
         self.y_name = ''
         self.X = np.array([])
@@ -117,6 +118,7 @@ class PredictiveAnalysis:
             'ACC': 'Accuracy', 'PRE': 'Precision', 'REC': 'Recall', 'F1': 'F1 score', 'AUC': 'Area Under ROC'}
         
         self.results = {model: {} for model in ['LinR', 'LogR', 'CART']}  # theta, y_hat, sigma for each scope and dataset
+        self.pred_df = {model: pd.DataFrame() for model in ['LinR', 'LogR', 'CART']}  # pd.DataFrame of all predicted values
         self.futures = {model: {} for model in ['LinR', 'LogR', 'CART']}  # predicted values for each 'fp'
         self.be_tests = {model: {} for model in ['LinR', 'LogR', 'CART']}  # backward elimination test results
         self.perf_df = {'LinR': pd.DataFrame(data=[], columns=['MA', 'FP', 'SC', 'RMSE', 'SE', 'R2', 'Adj-R2']),
@@ -184,18 +186,18 @@ class PredictiveAnalysis:
                 self.y_cat[:, c] = np.where(self.y_num[:, c] > 0, 1, 0)
 
         # create new dataframe
-        new_df_info = {'Date': self.df['Date'].iloc[12:]}
+        new_df_info = {'Date': self.df['Date'].iloc[12:].reset_index(drop=True)}
         new_df_info.update({
             **{key: self.X[:, i+1] for i, key in enumerate(self.X_name[1:])},
             **{f'{key}_num': self.y_num[:, i] for i, key in enumerate(self.y_name)},
             **{f'{key}_cat': self.y_cat[:, i] for i, key in enumerate(self.y_name)}
         }) # type: ignore
 
-        new_df = pd.DataFrame(new_df_info)
-        return new_df     
+        self.new_df = pd.DataFrame(new_df_info)
+        return self.new_df
 
 
-    def model_learning(self, scopes: list, model: str = '', X_use: list = [], eta_: float = 0.01, alpha_: float = 1, lambda_: float = 0.5, iter_: int = 100):
+    def model_learning(self, scopes: list, model: str = '', init_train: int = 120, X_use: list = [], eta_: float = 0.01, alpha_: float = 1, lambda_: float = 0.5, iter_: int = 100):
         """
         Define and return three types of figures
         - "self.compere_perf_fig": comparing performance with respect to evaluation metrics.
@@ -212,7 +214,29 @@ class PredictiveAnalysis:
         - "iter_": maximum iteration of parameter updates at each step
         """
         # define variable
+        self.init_train = init_train
         self.sc_opts = scopes
+
+        # update pred_df
+        self.pred_df[model] = pd.DataFrame()
+        self.pred_df[model]['Date'] = self.new_df['Date'].iloc[init_train:].reset_index(drop=True)
+        # numerical or categorical target
+        type_ = 'cat' if model == 'LogR' else 'num'
+        # define df for concatenate
+        concat_df = pd.DataFrame({
+            f'Act_{y_n.split("_")[1]}': self.new_df[f'{y_n}_{type_}'].iloc[init_train:].reset_index(drop=True) for y_n in self.y_name
+        })
+        # concatenating them
+        self.pred_df[model] = pd.concat([self.pred_df[model], concat_df], axis=1)
+        
+        # adding new rows with NaN for future prediction
+        start_date = pd.to_datetime(self.pred_df[model]['Date'].iloc[-1]) + pd.DateOffset(months=1)
+        new_dates = pd.date_range(start=start_date, periods=max(self.fp_opts), freq='M')
+        new_rows = pd.DataFrame({
+            'Date': new_dates.strftime('%Y-%m-%d'),
+        })
+        self.pred_df[model] = pd.concat([self.pred_df[model], new_rows], ignore_index=True)
+
         # define X feature index that will be used for model training
         if not X_use:
             self.X_use_idx = [i for i in range(len(self.X_name))]
@@ -239,10 +263,10 @@ class PredictiveAnalysis:
                 for j, sc in enumerate(self.sc_opts):
                     # linear regression
                     if model == 'LinR':
-                        theta, y_hat, error, future = self.linear_reg(X=self.X[:, self.X_use_idx], y=self.y_num[:, [i]], t=120, fp=fp, sc=sc)
-    
+                        theta, y_hat, error, future = self.linear_reg(X=self.X[:, self.X_use_idx], y=self.y_num[:, [i]], t=init_train, fp=fp, sc=sc)
+                    
                     elif model == 'LogR':
-                        theta, y_hat, error, future = self.logistic_reg(X=self.X[:, self.X_use_idx], y=self.y_cat[:, [i]], t=120, fp=fp, sc=sc)
+                        theta, y_hat, error, future = self.logistic_reg(X=self.X[:, self.X_use_idx], y=self.y_cat[:, [i]], t=init_train, fp=fp, sc=sc)
 
                     elif model == 'CART':
                         theta, y_hat, error, future = None, None, None, None
@@ -250,6 +274,10 @@ class PredictiveAnalysis:
                     else:
                         raise TypeError('Choose one of following model names: "LinR", "LogR", and "CART".')
                     
+                    # update predicted value
+                    add_array = np.append(future, np.full((max(self.fp_opts)-fp), np.nan))
+                    self.pred_df[model][f'Pred_{ma}MA_{fp}FP_{sc}SC'] = np.append(y_hat, add_array)
+
                     # store all results
                     self.results[model][f'{fp}FP'].update({f"{ma}MA_{sc}SC": {'theta': theta, 'y_hat': y_hat, 'error': error}})
                     # store future values
@@ -266,6 +294,7 @@ class PredictiveAnalysis:
                     # increment idx
                     idx += 1
 
+        # generate visualizations
         self.compere_perf_fig = self.compare_perf(model)
         self.be_test_fig = self.backward_elimination(model)
         self.coef_dev_fig = self.coefs_develop(model)
