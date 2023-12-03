@@ -25,7 +25,7 @@ class Standardization:
         self.X = np.array([])
         self.X_ss = np.array([])
 
-    def fit_transform(self, t: int, X: NDArray):
+    def fit_transform(self, X: NDArray, t: int):
         """
         Standarize X features by mean and std of the time periods of "t", then return the standardized features.
         
@@ -34,8 +34,8 @@ class Standardization:
         "X": the matrix of independent variables.
         """
         # store all given parameters
-        self.t = t
         self.X = X
+        self.t = t
         self.X_ss = np.zeros(X.shape)
 
         # initial standardization
@@ -83,7 +83,6 @@ class Standardization:
         """
         # assign current mean and std as old ones
         self.mu_old, self.sd_old = self.mu, self.sd
-        # newly deleted features will be at -120 from the current feature matrix
         self.mu = self.mu_old + (x_new - x_del) / self.t
         self.sd = np.sqrt(((self.t-1)*self.sd_old**2 - (x_del - self.mu_old)**2 + (x_new - self.mu)**2) / (self.t-1))
         # assign standardized features
@@ -105,6 +104,7 @@ class PredictiveAnalysis:
         self.ma_opts = []
         self.fp_opts = []
         self.sc_opts = []
+        self.init_train = 0
 
         # initialize hyperparameters
         self.eta_ = 0
@@ -138,7 +138,7 @@ class PredictiveAnalysis:
         # css style for sub title
         self.SUB_CSS = 'style="font-size: 12.5px; color: lightgrey;"'
 
-    def create_data(self, X_n: list, y_n: str, ma: list[int], fp: list[int], poly_d: int = 1):
+    def create_data(self, X_n: list, y_n: str, ma: list[int], fp: list[int], init_train: int = 120, poly_d: int = 1):
         """
         Create the datasets (defined variables are shown below)
         - "self.X_name": list -> each feature name (including bias)
@@ -152,11 +152,13 @@ class PredictiveAnalysis:
         - "ma": moving average options for a target value
         - "fp": options of future prediction (month basis);
                  how many months of target values are predictd based on current data.
+        - "init_train": range of data for initial training
         - "poly_degree": degree of the polynomials
         """
         # update variables
         self.ma_opts = ma
         self.fp_opts = fp
+        self.init_train = init_train
 
         # X fetures matrix
         # apply polynomial
@@ -166,7 +168,7 @@ class PredictiveAnalysis:
         self.X_name = self.poly.get_feature_names_out()
         # standardization
         self.scaler = Standardization()
-        X_ss = self.scaler.fit_transform(120, X_poly[:, 1:])
+        X_ss = self.scaler.fit_transform(X_poly[:, 1:], self.init_train)
         # add bias term
         self.X = np.c_[np.ones(X_ss.shape[0]), X_ss]
 
@@ -198,7 +200,7 @@ class PredictiveAnalysis:
         return self.new_df
 
 
-    def model_learning(self, scopes: list, model: str = '', init_train: int = 120, X_use: list = [], eta_: float = 0.01, alpha_: float = 1, lambda_: float = 0.5, iter_: int = 100):
+    def model_learning(self, scopes: list, model: str = '', X_use: list = [], eta_: float = 0.01, alpha_: float = 0.1, lambda_: float = 0.5, iter_: int = 100):
         """
         Define and return three types of figures
         - "self.compere_perf_fig": comparing performance with respect to evaluation metrics.
@@ -215,17 +217,16 @@ class PredictiveAnalysis:
         - "iter_": maximum iteration of parameter updates at each step
         """
         # define variable
-        self.init_train = init_train
         self.sc_opts = scopes
 
         # update pred_df
         self.pred_df[model] = pd.DataFrame()
-        self.pred_df[model]['Date'] = self.new_df['Date'].iloc[init_train:].reset_index(drop=True)
+        self.pred_df[model]['Date'] = self.new_df['Date'].iloc[self.init_train:].reset_index(drop=True)
         # numerical or categorical target
         type_ = 'cat' if model == 'LogR' else 'num'
         # define df for concatenate
         concat_df = pd.DataFrame({
-            f'Act_{y_n.split("_")[1]}': self.new_df[f'{y_n}_{type_}'].iloc[init_train:].reset_index(drop=True) for y_n in self.y_name
+            f'Act_{y_n.split("_")[1]}': self.new_df[f'{y_n}_{type_}'].iloc[self.init_train:].reset_index(drop=True) for y_n in self.y_name
         })
         # concatenating them
         self.pred_df[model] = pd.concat([self.pred_df[model], concat_df], axis=1)
@@ -264,10 +265,10 @@ class PredictiveAnalysis:
                 for j, sc in enumerate(self.sc_opts):
                     # linear regression
                     if model == 'LinR':
-                        theta, y_hat, error, future = self.linear_reg(X=self.X[:, self.X_use_idx], y=self.y_num[:, [i]], t=init_train, fp=fp, sc=sc)
+                        theta, y_hat, error, future = self.linear_reg(X=self.X[:, self.X_use_idx], y=self.y_num[:, [i]], t=self.init_train, fp=fp, sc=sc)
                     
                     elif model == 'LogR':
-                        theta, y_hat, error, future = self.logistic_reg(X=self.X[:, self.X_use_idx], y=self.y_cat[:, [i]], t=init_train, fp=fp, sc=sc)
+                        theta, y_hat, error, future = self.logistic_reg(X=self.X[:, self.X_use_idx], y=self.y_cat[:, [i]], t=self.init_train, fp=fp, sc=sc)
 
                     elif model == 'CART':
                         theta, y_hat, error, future = None, None, None, None
@@ -286,7 +287,7 @@ class PredictiveAnalysis:
 
                     # get test result of backward elimination
                     y_vec = self.y_cat[:, [i]] if model == 'LogR' else self.y_num[:, [i]]
-                    be_test_df = self.evaluation(model, self.X[:, self.X_use_idx], y_vec, 120, theta, y_hat, error, fp)
+                    be_test_df = self.evaluation(model, self.X[:, self.X_use_idx], y_vec, self.init_train, theta, y_hat, error, fp)
                     # retrienve only performance without any changes in each coefficient
                     self.perf_df[model].loc[idx] = [ma, fp, sc] + list(be_test_df.iloc[0])
                     # store its result as NDArray
@@ -323,34 +324,10 @@ class PredictiveAnalysis:
         actual = pred_df[f'Act_{ma}MA']
         fig1.add_trace(go.Scatter(x=x_date, y=actual, mode='lines', name='Actual'))
 
-        # predictions
-        #  if both 'fp' and 'sc' are number
-        if fp != 'mean' and sc != 'mean':
-            predict = pred_df[f'Pred_{ma}MA_{fp}FP_{sc}SC']
-            sub_title1 = f'<br><span {self.SUB_CSS}> --Adjusted parameters to predict a target price {fp} month(s) ahead.</span>'
-            sub_title2 = f'<br><span {self.SUB_CSS}> --Updated parameters by the recent {sc} month(s) of data at each step.</span>'
-        #  if only sc is 'mean
-        elif fp != 'mean' and sc == 'mean':
-            filter_cols = [c for c in pred_df.columns if c.startswith(f'Pred_{ma}MA_{fp}FP')]
-            predict = pred_df[filter_cols].mean(axis=1)
-            sub_title1 = f'<br><span {self.SUB_CSS}> --Adjusted parameters to predict a target price {fp} month(s) ahead.</span>'
-            sub_title2 = f'<br><span {self.SUB_CSS}> --Aggregated different prediction results generated from all scopes.</span>'
-        #  if only fp is 'mean'
-        elif fp == 'mean' and sc != 'mean':
-            filter_cols = [c for c in pred_df.columns 
-                        if c.startswith(f'Pred_{ma}MA') and c.endswith(f'_{sc}SC')]
-            predict = pred_df[filter_cols].mean(axis=1)
-            sub_title1 = f'<br><span {self.SUB_CSS}> --Aggregated multiple results generated from all defined future months ahead.</span>'
-            sub_title2 = f'<br><span {self.SUB_CSS}> --Updated parameters by the recent {sc} month(s) of data at each step.</span>'
-        #  else; both are 'mean'
-        else:
-            filter_cols = [c for c in pred_df.columns if c.startswith(f'Pred_{ma}MA')]
-            predict = pred_df[filter_cols].mean(axis=1)
-            sub_title1 = f'<br><span {self.SUB_CSS}> --Aggregated all results from different futures ahead & scopes.</span>'
-            sub_title2 = f'<br><span {self.SUB_CSS}> --Bands showing three standard deviations based on all results. </span>'
-            # adding bands
-            sigma_3 = (pred_df[filter_cols].std(axis=1) * 3).values
-            fig1.add_traces([
+        # function to add bands (3 stds)
+        def add_bands(fig, predict, cols):
+            sigma_3 = (pred_df[cols].std(axis=1) * 3).values
+            fig.add_traces([
                 go.Scatter(
                     name='+-3 sigma',
                     x=x_date, y=predict - sigma_3, 
@@ -365,11 +342,44 @@ class PredictiveAnalysis:
                     legendgroup='bands', hovertemplate='Upper: %{y:.2f}<extra></extra>', showlegend=True
                 ),
             ])
+            return fig
+
+        # predictions
+        draw_bands = True
+        #  if both 'fp' and 'sc' are number
+        if fp != 'mean' and sc != 'mean':
+            filter_cols = f'Pred_{ma}MA_{fp}FP_{sc}SC'
+            predict = pred_df[filter_cols]
+            sub_title1 = f'<br><span {self.SUB_CSS}> --Adjusted parameters to predict a target price {fp} month(s) ahead.</span>'
+            sub_title2 = f'<br><span {self.SUB_CSS}> --Focused on {sc} month(s) of data to update parameters at each step.</span>'
+            draw_bands = False
+        #  if only sc is 'mean
+        elif fp != 'mean' and sc == 'mean':
+            filter_cols = [c for c in pred_df.columns if c.startswith(f'Pred_{ma}MA_{fp}FP')]
+            predict = pred_df[filter_cols].mean(axis=1)
+            sub_title1 = f'<br><span {self.SUB_CSS}> --Adjusted parameters to predict a target price {fp} month(s) ahead.</span>'
+            sub_title2 = f'<br><span {self.SUB_CSS}> --Aggregated different prediction results generated from all scopes.</span>'
+        #  if only fp is 'mean'
+        elif fp == 'mean' and sc != 'mean':
+            filter_cols = [c for c in pred_df.columns 
+                        if c.startswith(f'Pred_{ma}MA') and c.endswith(f'_{sc}SC')]
+            predict = pred_df[filter_cols].mean(axis=1)
+            sub_title1 = f'<br><span {self.SUB_CSS}> --Aggregated multiple results generated from all defined future months ahead.</span>'
+            sub_title2 = f'<br><span {self.SUB_CSS}> --Focused on the recent {sc} month(s) of data to update parameters at each step.</span>'
+        #  else; both are 'mean'
+        else:
+            filter_cols = [c for c in pred_df.columns if c.startswith(f'Pred_{ma}MA')]
+            predict = pred_df[filter_cols].mean(axis=1)
+            sub_title1 = f'<br><span {self.SUB_CSS}> --Aggregated all results from different futures ahead & scopes.</span>'
+            sub_title2 = f'<br><span {self.SUB_CSS}> --Bands showing three standard deviations based on all results. </span>'
 
         # drawing line
         fig1.add_trace(go.Scatter(x=x_date, y=predict, mode='lines', name='Predict',
                                 line=dict(color='lightgreen')))
-        
+        # drawing bands
+        if draw_bands:
+            fig1 = add_bands(fig1, predict, filter_cols)
+
         # layout
         if ma == 1:
             add_title = '(Actual Prices)'
@@ -393,7 +403,7 @@ class PredictiveAnalysis:
         # calculate error
         error = (actual - predict).values
         # the highest frequency (max count)
-        hist, _ = np.histogram(error[~np.isnan(error)], bins=20)
+        hist, _ = np.histogram(error[~np.isnan(error)], bins=10)
         max_freq= max(hist)
         # scale change(max_freq is assigned 70% of the final plots)
         total_obs = len(x_date)
