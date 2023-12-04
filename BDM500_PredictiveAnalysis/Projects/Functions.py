@@ -11,6 +11,8 @@ from plotly.subplots import make_subplots
 
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeRegressor, export_graphviz
+from copy import deepcopy
 from sklearn.metrics import confusion_matrix, auc
 
 
@@ -124,17 +126,12 @@ class PredictiveAnalysis:
         self.be_tests = {model: {} for model in ['LinR', 'LogR', 'CART']}  # backward elimination test results
         self.perf_df = {'LinR': pd.DataFrame(data=[], columns=['MA', 'FP', 'SC', 'RMSE', 'SE', 'R2', 'Adj-R2']),
                         'LogR': pd.DataFrame(data=[], columns=['MA', 'FP', 'SC', 'ACC', 'PRE', 'REC', 'F1', 'AUC']),
-                        'CART': pd.DataFrame(data=[], columns=['MA', 'FP', 'SC', 'RMSE', 'SE', 'R2', 'Adj-R2'])}
+                        'CART': pd.DataFrame(data=[], columns=['MA', 'FP', 'RMSE', 'SE', 'R2', 'Adj-R2'])}
 
         # initialize class
         self.poly = None
         self.scaler = None
 
-        # initialize figures
-        self.compere_perf_fig = None  # evaluation metrics
-        self.be_test_fig = None  # backward elimination (scopes)
-        self.coef_dev_fig = None  # development of coefficient over time 
-        
         # css style for sub title
         self.SUB_CSS = 'style="font-size: 12.5px; color: lightgrey;"'
 
@@ -200,21 +197,27 @@ class PredictiveAnalysis:
         return self.new_df
 
 
-    def model_learning(self, scopes: list, model: str = '', X_use: list = [], eta_: float = 0.01, alpha_: float = 0.1, lambda_: float = 0.5, iter_: int = 100):
+    def model_learning(self, model: str, scopes: list = [1,3,6,9,12], X_use: list = [], 
+                       eta_: float = 0.01, alpha_: float = 0.1, lambda_: float = 0.5, iter_: int = 100,
+                       max_death_: int = 5):
         """
         Define and return three types of figures
-        - "self.compere_perf_fig": comparing performance with respect to evaluation metrics.
-        - "self.be_test_fig": result of the backward elimination with respect to scopes.
-        - "self.coef_dev_fig": development of thetas(coefficisnts) over time.
+        - "fig1": comparing performance with respect to evaluation metrics.
+        - "fig2": result of the backward elimination with respect to scopes.
+        - "fig3": impacts of each economic indicator on target over time.
         
         Parameters:
         - "scopes": how much previous data should be considered to update the parameters next step.
         - "model": either one of ['LinR', 'LogR', 'CART'].
         - "X_use": the list of feature names that are used for the model training.
+        (for Linear and Logistic Regression models)
         - "eta_": learning rate of each gradient descent.
         - "alpha_": degree of how strong the regularizations are.
         - "lambda_": balancer between l2 and l1 norm.
         - "iter_": maximum iteration of parameter updates at each step
+        (For classification and regression tree model)
+        - "max_death_": 
+
         """
         # define variable
         self.sc_opts = scopes
@@ -271,37 +274,57 @@ class PredictiveAnalysis:
                         theta, y_hat, error, future = self.logistic_reg(X=self.X[:, self.X_use_idx], y=self.y_cat[:, [i]], t=self.init_train, fp=fp, sc=sc)
 
                     elif model == 'CART':
-                        theta, y_hat, error, future = None, None, None, None
+                        theta, y_hat, error, future = self.tree_reg(X=self.X[:, self.X_use_idx], y=self.y_num[:, [i]], t=self.init_train, fp=fp, max_death_=max_death_)
 
                     else:
                         raise TypeError('Choose one of following model names: "LinR", "LogR", and "CART".')
                     
-                    # update predicted value
+                    # update predicted value and store all results
                     add_array = np.append(future, np.full((max(self.fp_opts)-fp), np.nan))
-                    self.pred_df[model][f'Pred_{ma}MA_{fp}FP_{sc}SC'] = np.append(y_hat, add_array)
+                    if model == 'CART':
+                        self.pred_df[model][f'Pred_{ma}MA_{fp}FP'] = np.append(y_hat, add_array)
+                        self.results[model][f'{fp}FP'].update({f"{ma}MA": {'f_impacts': theta, 'y_hat': y_hat, 'error': error}})
+                    else:
+                        self.pred_df[model][f'Pred_{ma}MA_{fp}FP_{sc}SC'] = np.append(y_hat, add_array)
+                        self.results[model][f'{fp}FP'].update({f"{ma}MA_{sc}SC": {'theta': theta, 'y_hat': y_hat, 'error': error}})
 
-                    # store all results
-                    self.results[model][f'{fp}FP'].update({f"{ma}MA_{sc}SC": {'theta': theta, 'y_hat': y_hat, 'error': error}})
                     # store future values
-                    self.futures[model][f'{fp}FP'][f'{ma}MA'][j] = future
+                    self.futures[model][f'{fp}FP'][f'{ma}MA'][j] = future.flatten()
 
-                    # get test result of backward elimination
+                    # get test result of backward elimination for LinR and LogR or metrics for CART
                     y_vec = self.y_cat[:, [i]] if model == 'LogR' else self.y_num[:, [i]]
-                    be_test_df = self.evaluation(model, self.X[:, self.X_use_idx], y_vec, self.init_train, theta, y_hat, error, fp)
-                    # retrienve only performance without any changes in each coefficient
-                    self.perf_df[model].loc[idx] = [ma, fp, sc] + list(be_test_df.iloc[0])
+                    evaluation_df = self.evaluation(model, self.X[:, self.X_use_idx], y_vec, self.init_train, theta, y_hat, error, fp)
+                    
+
+                    if model == 'CART':
+                        # retrienve only performance without any changes in each coefficient
+                        self.perf_df[model].loc[idx] = [ma, fp] + list(evaluation_df.iloc[0])
+                    else:
+                        self.perf_df[model].loc[idx] = [ma, fp, sc] + list(evaluation_df.iloc[0])
+
                     # store its result as NDArray
-                    self.be_tests[model][sc].append(np.array(be_test_df))
+                    self.be_tests[model][sc].append(np.array(evaluation_df))
 
                     # increment idx
                     idx += 1
 
-        # generate visualizations
-        self.compere_perf_fig = self.compare_perf(model)
-        self.be_test_fig = self.backward_elimination(model)
-        self.coef_dev_fig = self.coefs_develop(model)
+                    # CART model does not take care of different scopes
+                    if model == 'CART' and j == 0:
+                        break
 
-        return self.compere_perf_fig, self.be_test_fig, self.coef_dev_fig
+        # generate visualizations
+        # comparing various metrics
+        fig1 = self.compare_perf(model)
+        if model == 'CART':
+            fig2 = None
+        else:
+            # backward elimination results
+            fig2 = self.backward_elimination(model)
+
+        # impacts of features on target over time
+        fig3 = self.coefs_develop(model)
+
+        return fig1, fig2, fig3
 
 
     def detail_perf(self, model: str, ma: int, fp: int|str = 'mean', sc: int|str = 'mean'):
@@ -527,7 +550,7 @@ class PredictiveAnalysis:
         - dictionary: predicted y values:
             - "cat" key: "y_preds_c" -> predicted labels at each step
             - "proba" ley: "y_preds_p" -> predicted probability at each step (nagetige & positive class)
-        - "errors"  -> prediction errors (actual - predicted values); SSE
+        - "errors"  -> prediction errors (actual - predicted values)
         - dictionary: future y values 
             - "cat": predicted labels at each step
             - "proba": probability of the positive class label
@@ -536,6 +559,7 @@ class PredictiveAnalysis:
         - "X": np.array -> independent variables
         - "y": np.array -> target variables (shouold be categorical)
         - "t": int -> number of data that were used for the initial parameter creation.
+        - "fp": the performance of certain months of future
         - "sc": int -> scope of the latest data for parameter updates.
         """
         # define sigmoid function
@@ -611,6 +635,49 @@ class PredictiveAnalysis:
 
         return thetas, y_hats, errors, future 
         
+
+    def tree_reg(self, X, y, t, fp, max_death_):
+        
+        # initialize matrics to store values at each step
+        f_impacts = np.full((X.shape[0]-t, X.shape[1]), np.nan)
+        y_hats = np.full((X.shape[0]-t, 1), np.nan)
+        errors = np.full((X.shape[0]-t, 1), np.nan)
+        # store tree model at each time step
+        models = []
+       
+        # initial training 
+        init_X, init_y = X[0:t], y[fp:t+fp]
+        tree = DecisionTreeRegressor(max_depth=max_death_)
+        tree.fit(init_X, init_y.flatten())
+        # set initial feature impacts
+        f_impacts[:fp] = tree.feature_importances_
+        # store the current data
+        for _ in range(fp):
+            f_impacts[:fp] = tree.feature_importances_
+            models.append(deepcopy(tree))
+
+        # incremental learning
+        i = 0
+        while t+fp < len(y):
+            # predict y based on the model that was created certain months before
+            y_hat = models[i].predict(X[[t]])
+            y_hats[i+fp] = y_hat
+            # calculate error
+            errors[i+fp] = y[t]-y_hat
+            # recreate the tree diagram
+            tree.fit(X[:t+1], y[:t+1])
+            f_impacts[i+fp] = tree.feature_importances_
+            models.append(deepcopy(tree))
+
+            # increment t and idx
+            t += 1
+            i += 1
+        
+        # future values
+        future = np.array([models[i2].predict(X[[i2]]) for i2 in range(i, i+fp)])
+
+        return f_impacts, y_hats, errors, future
+    
 
     def evaluation(self, model, X, y, t, thetas, y_hats, errors, fp):
         """
@@ -724,15 +791,36 @@ class PredictiveAnalysis:
 
             return pd.DataFrame(data=mm, index=rows, columns=cols)
 
+        elif model == 'CART':
+            # names of the measure
+            cols = ['rmse', 'se', 'r2', 'adj_r2']
+            # sum of square total
+            sst = np.sum((y_ - np.mean(y_))**2)
+            errors = errors[~np.isnan(errors)]
+            # Calculate Measures (rmse, se, r2, adj_r2, in order)
+            sse = np.sum(errors**2)
+    
+            return pd.DataFrame({
+                'rmse': np.sqrt((errors**2).mean()),
+                'se': np.sqrt(sse / (n - k - 1)),
+                'r2': 1 - sse/sst,
+                'adj_r2': 1 - (sse/(n - k -1))/(sst/(n-1))
+            }, index=[0])
+
         else:
             raise(TypeError("Model should be either one of ['LinR', 'LogR', 'CART']"))
 
 
     def compare_perf(self, model: str):
-        # deine measures
-        measures = list(self.perf_df[model].columns)[3:]
-        # modity perf_df
-        perf_df = self.perf_df[model].drop('SC', axis=1).groupby(['FP', 'MA']).mean()
+        # define measures & modify perf_df
+        if model == 'CART':
+            measures = list(self.perf_df[model].columns)[2:]
+            perf_df = self.perf_df[model].groupby(['FP', 'MA']).mean()
+
+        else:
+            measures = list(self.perf_df[model].columns)[3:]
+            perf_df = self.perf_df[model].drop('SC', axis=1).groupby(['FP', 'MA']).mean()
+    
         perf_df = perf_df.reset_index()
         perf_df['MA'] = perf_df['MA'].astype(str)
 
@@ -839,7 +927,12 @@ class PredictiveAnalysis:
         """
         # get the minimum theta dimentions (ecluding bias term)
         max_fp, max_ma, first_sc = max(self.fp_opts), max(self.ma_opts), self.sc_opts[0]
-        thetas_dim = self.results[model][f'{max_fp}FP'][f'{max_ma}MA_{first_sc}SC']['theta'][:, 1:].shape
+        if model == 'CART':
+            thetas_dim = self.results[model][f'{max_fp}FP'][f'{max_ma}MA']['f_impacts'][:, 1:].shape
+        else:
+
+            thetas_dim = self.results[model][f'{max_fp}FP'][f'{max_ma}MA_{first_sc}SC']['theta'][:, 1:].shape
+        
         min_thetas_dim = (thetas_dim[0]-max_fp, thetas_dim[1])
         # get the last date of data frame
         last_date = pd.to_datetime(self.df['Date'].iloc[-1])
@@ -861,7 +954,8 @@ class PredictiveAnalysis:
             for k2 in self.results[model][k1].keys():
                 # index start and end
                 s, e = max_fp - fp+1, thetas_dim[0] - fp + 1
-                thetas_data += self.results[model][k1][k2]['theta'][s:e, 1:]
+                name = 'f_impacts' if model == 'CART' else 'theta' 
+                thetas_data += self.results[model][k1][k2][name][s:e, 1:]
                 denominator += 1
 
         # calculate mean
