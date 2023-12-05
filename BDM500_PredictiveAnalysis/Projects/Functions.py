@@ -106,7 +106,8 @@ class PredictiveAnalysis:
         self.ma_opts = []
         self.fp_opts = []
         self.sc_opts = []
-        self.init_train = 0
+        self.init_train = 0  # number of initial training data
+        self.trees = {}  # regression tree model and each step; keys MA and FP
 
         # initialize hyperparameters
         self.eta_ = 0
@@ -244,11 +245,17 @@ class PredictiveAnalysis:
 
         # define X feature index that will be used for model training
         if not X_use:
-            self.X_use_idx = [i for i in range(len(self.X_name))]
+            # do not use bias term for CART model
+            adj_bias = 1 if model == 'CART' else 0
+            self.X_use_idx = [i for i in range(adj_bias, len(self.X_name))]
         else:
-            self.X_use_idx = [0] + list(np.where(np.in1d(self.X_name, X_use))[0])
+            if model == 'CART':
+                # always removing bias term
+                self.X_use_idx = list(np.where(np.in1d(self.X_name, X_use))[0])
+            else:
+                self.X_use_idx = [0] + list(np.where(np.in1d(self.X_name, X_use))[0])
 
-        # set hyperparameters globally
+        # set hyperparameters
         self.eta_ = eta_
         self.alpha_ = alpha_
         self.lambda_ = lambda_
@@ -274,7 +281,9 @@ class PredictiveAnalysis:
                         theta, y_hat, error, future = self.logistic_reg(X=self.X[:, self.X_use_idx], y=self.y_cat[:, [i]], t=self.init_train, fp=fp, sc=sc)
 
                     elif model == 'CART':
-                        theta, y_hat, error, future = self.tree_reg(X=self.X[:, self.X_use_idx], y=self.y_num[:, [i]], t=self.init_train, fp=fp, max_death_=max_death_)
+                        theta, y_hat, error, future, models = self.tree_reg(X=self.X[:, self.X_use_idx], y=self.y_num[:, [i]], t=self.init_train, fp=fp, max_death_=max_death_)
+                        # store all tree diagram
+                        self.trees[f'{ma}MA_{fp}FP'] = models
 
                     else:
                         raise TypeError('Choose one of following model names: "LinR", "LogR", and "CART".')
@@ -316,7 +325,7 @@ class PredictiveAnalysis:
         # comparing various metrics
         fig1 = self.compare_perf(model)
         if model == 'CART':
-            fig2 = None
+            fig2 = go.Figure()
         else:
             # backward elimination results
             fig2 = self.backward_elimination(model)
@@ -382,6 +391,8 @@ class PredictiveAnalysis:
             predict = pred_df[filter_cols].mean(axis=1)
             sub_title1 = f'<br><span {self.SUB_CSS}> --Adjusted parameters to predict a target price {fp} month(s) ahead.</span>'
             sub_title2 = f'<br><span {self.SUB_CSS}> --Aggregated different prediction results generated from all scopes.</span>'
+            if model == 'CART':
+                draw_bands = False
         #  if only fp is 'mean'
         elif fp == 'mean' and sc != 'mean':
             filter_cols = [c for c in pred_df.columns 
@@ -408,10 +419,16 @@ class PredictiveAnalysis:
             add_title = '(Actual Prices)'
         else:
             add_title = f'({ma}-Month Moving Averaged Prices)'
+        # adjustment
+        adj_y = 0
+        if model == "CART":
+            sub_title2=''
+            adj_y = 0.05
+
         main_title = 'Prediction of %YoY S&P500 ' + add_title
         fig1.update_layout(
             height=400, width=700, template='plotly_dark', hovermode="x unified", 
-            title=dict(text=main_title+sub_title1+sub_title2, y=0.90), 
+            title=dict(text=main_title+sub_title1+sub_title2, y=0.90-adj_y),
             legend=dict(orientation="h", yanchor="bottom", y=0.05, xanchor="left", x=0.0),
             margin=go.layout.Margin(l=80, r=40, b=40, t=100)
         )
@@ -642,9 +659,8 @@ class PredictiveAnalysis:
         f_impacts = np.full((X.shape[0]-t, X.shape[1]), np.nan)
         y_hats = np.full((X.shape[0]-t, 1), np.nan)
         errors = np.full((X.shape[0]-t, 1), np.nan)
-        # store tree model at each time step
         models = []
-       
+
         # initial training 
         init_X, init_y = X[0:t], y[fp:t+fp]
         tree = DecisionTreeRegressor(max_depth=max_death_)
@@ -676,7 +692,7 @@ class PredictiveAnalysis:
         # future values
         future = np.array([models[i2].predict(X[[i2]]) for i2 in range(i, i+fp)])
 
-        return f_impacts, y_hats, errors, future
+        return f_impacts, y_hats, errors, future, models
     
 
     def evaluation(self, model, X, y, t, thetas, y_hats, errors, fp):
@@ -928,7 +944,7 @@ class PredictiveAnalysis:
         # get the minimum theta dimentions (ecluding bias term)
         max_fp, max_ma, first_sc = max(self.fp_opts), max(self.ma_opts), self.sc_opts[0]
         if model == 'CART':
-            thetas_dim = self.results[model][f'{max_fp}FP'][f'{max_ma}MA']['f_impacts'][:, 1:].shape
+            thetas_dim = self.results[model][f'{max_fp}FP'][f'{max_ma}MA']['f_impacts'].shape
         else:
 
             thetas_dim = self.results[model][f'{max_fp}FP'][f'{max_ma}MA_{first_sc}SC']['theta'][:, 1:].shape
@@ -954,14 +970,17 @@ class PredictiveAnalysis:
             for k2 in self.results[model][k1].keys():
                 # index start and end
                 s, e = max_fp - fp+1, thetas_dim[0] - fp + 1
-                name = 'f_impacts' if model == 'CART' else 'theta' 
-                thetas_data += self.results[model][k1][k2][name][s:e, 1:]
+                if model == 'CART':
+                    thetas_data = self.results[model][k1][k2]['f_impacts'][s:e]
+                else:
+                    thetas_data += self.results[model][k1][k2]['theta'][s:e, 1:]
                 denominator += 1
 
         # calculate mean
         thetas_mean = thetas_data / denominator
         # define column names
-        cols = [self.X_name[i] for i in self.X_use_idx[1:]]
+        s_idx = 0 if model == 'CART' else 1
+        cols = [self.X_name[i] for i in self.X_use_idx[s_idx:]]
         # adding thetas_data
         thetas_df = pd.concat([thetas_df, pd.DataFrame(thetas_mean, columns=cols)], axis=1)
         
