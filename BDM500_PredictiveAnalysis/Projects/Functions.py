@@ -47,12 +47,12 @@ class Standardization:
         # standarize new feature one by one
         for i, idx in enumerate(range(t, len(X))):
             # assign a series of newly standardized features
-            self.X_ss[idx] = self.update(x_del=X[i], x_new=X[idx])
+            self.X_ss[idx] = self.update(x_del=X[i], x_new=X[idx], update=True)
 
         return self.X_ss
         
 
-    def transform(self, x: NDArray):
+    def transform(self, x: NDArray, update: bool = True):
         """
         Return value is the same as self.update().
         A given series of features ("x") is added to the stored feature matrix.
@@ -62,19 +62,21 @@ class Standardization:
 
         Parameter:
         - "x": a series of newly updated features and has never been add in self.X 
+        - "update": if True, updating the newly added vector of independent variables
         """
         # a series of deleted features 
         x_del = self.X[-self.t]
-        # update X
-        self.X = np.append(self.X, x)
         # assign standardized features
-        new_features = self.update(x_del=x_del, x_new=x)
-        self.X_ss = np.append(self.X_ss, new_features)
+        new_features = self.update(x_del=x_del, x_new=x, update=update)
+        # update X
+        if update:
+            self.X = np.append(self.X, x)
+            self.X_ss = np.append(self.X_ss, new_features)
 
         return new_features
 
 
-    def update(self, x_del: NDArray, x_new: NDArray):
+    def update(self, x_del: NDArray, x_new: NDArray, update: bool):
         """
         Return a series of standardized features one by one based on the mean and std of the most recent "self.t" number of data.
         In other words, a series of new features are standardized by the moving average and std over the "self.t" periods.
@@ -82,13 +84,20 @@ class Standardization:
         Paratermers:
         - "x_del": a series of unscoped features.
         - "x_new": a series of the most recent features.
+        - "update": wheteth the current mu and std is updated or not
         """
         # assign current mean and std as old ones
-        self.mu_old, self.sd_old = self.mu, self.sd
-        self.mu = self.mu_old + (x_new - x_del) / self.t
-        self.sd = np.sqrt(((self.t-1)*self.sd_old**2 - (x_del - self.mu_old)**2 + (x_new - self.mu)**2) / (self.t-1))
+        mu_old, sd_old = self.mu, self.sd
+        mu = mu_old + (x_new - x_del) / self.t
+        sd = np.sqrt(((self.t-1)*sd_old**2 - (x_del - mu_old)**2 + (x_new - mu)**2) / (self.t-1))
+
+        # update if True
+        if update:
+            self.mu_old, self.sd_old = mu_old, sd_old 
+            self.mu, self.sd = mu, sd
+
         # assign standardized features
-        new_features = (x_new - self.mu) / self.sd
+        new_features = (x_new - mu) / sd
 
         return new_features
     
