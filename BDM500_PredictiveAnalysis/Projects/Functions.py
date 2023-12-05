@@ -573,13 +573,9 @@ class PredictiveAnalysis:
         """
         Return the following matrix (dtype: np.array)
         - "thetas"  -> parameters (intercept + coefficients) at each step
-        - dictionary: predicted y values:
-            - "cat" key: "y_preds_c" -> predicted labels at each step
-            - "proba" ley: "y_preds_p" -> predicted probability at each step (nagetige & positive class)
+        - "y_hats" -> the probability of classifying label "1" at each incremental step
         - "errors"  -> prediction errors (actual - predicted values)
-        - dictionary: future y values 
-            - "cat": predicted labels at each step
-            - "proba": probability of the positive class label
+        - "future" -> the probability of classifying label "1" for the future
 
         Parameters:
         - "X": np.array -> independent variables
@@ -663,7 +659,22 @@ class PredictiveAnalysis:
         
 
     def tree_reg(self, X, y, t, fp, max_death_):
-        
+        """
+        Return the following matrix (dtype: np.array)
+        - "f-impacts"  -> feature_importances_ at each time step
+        - dictionary: the probability of classifying label "1" at each step
+        - "errors"  -> prediction errors (actual - predicted values)
+        - dictionary: future y values 
+            - "cat": predicted labels at each step
+            - "proba": probability of the positive class label
+
+        Parameters:
+        - "X": np.array -> independent variables
+        - "y": np.array -> target variables (shouold be categorical)
+        - "t": int -> number of data that were used for the initial parameter creation.
+        - "fp": the performance of certain months of future
+        - "max_death_" -> maximum death of tree (default is 5 from one of the attributes of model_learning())
+        """
         # initialize matrics to store values at each step
         f_impacts = np.full((X.shape[0]-t, X.shape[1]), np.nan)
         y_hats = np.full((X.shape[0]-t, 1), np.nan)
