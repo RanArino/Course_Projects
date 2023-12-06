@@ -5,22 +5,25 @@ import os
 import numpy as np
 import pandas as pd
 
-import app_design
+from app_design import Design
 
 # current directory
 current_dir = os.path.dirname(os.path.abspath(__file__))
 # Construct the file path
 csv_file = os.path.join(current_dir, "original.csv")
 # load csv
-df = pd.read_csv(csv_file)
+origin_df = pd.read_csv(csv_file)
 
 app = Dash(external_stylesheets=[dbc.themes.DARKLY])
 
+design = Design(origin_df)
+
 app.layout = dbc.Container([
-    app_design.header(), 
-    app_design.overview(),
-    app_design.dataset(),
-    app_design.data_preprocessing(df),
+    design.header(),
+    design.overview(),
+    design.dataset(),
+    design.data_preprocessing(),
+    design.data_observation(),
 ], fluid=True)
 
 if __name__ == "__main__":
