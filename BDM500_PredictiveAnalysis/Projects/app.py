@@ -20,7 +20,7 @@ app.layout = dbc.Container([
     app_design.header(), 
     app_design.overview(),
     app_design.dataset(),
-    
+    app_design.data_preprocessing(df),
 ], fluid=True)
 
 if __name__ == "__main__":
