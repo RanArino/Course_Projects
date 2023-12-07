@@ -1,9 +1,12 @@
-from dash import html, dash_table, dcc
+from dash import Dash, html, dash_table, dcc, Output, Input, State, ALL, ctx, Patch, no_update
 import dash_bootstrap_components as dbc
 import dash_mantine_components as dmc
 import plotly.express as px
 
+import numpy as np
 import pandas as pd
+from scipy.stats import skew
+from itertools import combinations
 
 # dash table design
 TABLE_STYLE = dict(
@@ -46,15 +49,18 @@ TABLE_STYLE = dict(
     }
 )
 #  plotly figure design
-FIGURE_STYLE = dict(
+FIG_DARK = dict(
     template='plotly_dark',
 )
 # horizontal dash line
 DASH_LINE = html.Hr(style={'borderTop': '2px dashed #fff', 'margin': '75px 0'})
-
+# color
+COLORS = ['#636EFA', '#EF553B', '#00CC96', '#AB63FA', '#FFA15A', '#19D3F3', '#FF6692', '#B6E880', '#FF97FF', '#FECB52']
 
 class Design:
-    def __init__(self, df: pd.DataFrame):
+    def __init__(self, app: Dash, df: pd.DataFrame):
+        # app
+        self.app = app
         # assign original data frame
         self.origin = df
 
@@ -87,6 +93,10 @@ class Design:
         self.df3.drop(['MY10Y', 'CPI'], axis=1, inplace=True)
         # show new correlation matrix
         self.corr2 = self.df3[['CSENT', 'IPM', 'HOUSE', 'UNEMP', 'LRIR', 'SP500']].corr().reset_index(names='')
+        
+        # change to log(UNEMP)
+        self.df4 = self.df3.copy()
+        self.df4['UNEMP'] = np.log(self.df3['UNEMP'])
 
 
     def header(self):
@@ -243,8 +253,8 @@ class Design:
         #  graph
         fig = px.line(self.group_year, x='Year', y='Month', title='Number of monthly data on each year')
         fig.update_layout(
-            hovermode="x unified", 
-            **FIGURE_STYLE
+            FIG_DARK,
+            hovermode="x unified",    
         )
         # graph observations 
         comments_1 = """
@@ -268,7 +278,7 @@ class Design:
                     ),
                     dbc.Col([
                         # html.Div for graph observations
-                        self.design_oberve(comments_1, 'Ul'),
+                        self.design_observe(comments_1, 'Ul'),
                         dbc.Row([
                             html.H5("Data Preview (After Modification)", style={'color': '#d9d9d9', 'margin': '15px'}),
                             dash_table.DataTable(
@@ -313,7 +323,7 @@ class Design:
         return dbc.Container(elements)
 
     def data_observation(self):
-
+        # store all elements
         elements = [html.H3('Data Observations', style={'textAlign': 'center', 'margin': '30px auto'})]
 
         # (1) Correlation Matrix & Feature Selection
@@ -332,12 +342,12 @@ class Design:
             ),
             ]
         # observations
-        comments_1 = """
+        comments1_1 = """
             CSENT, IPM, and HOUSE are positively correlated with the S&P500 index, and those relationships are relative high.
             MY10Y, CPI, and UNEMP have weaker relationship with the S&P500 index; all values are close to zero.
             MY10Y and CPI shows the strongest correlation; although there is less risk of multicollinearity, a derived data "LRIR" will be created for feature removal.
         """ 
-        comments_2 = """
+        comments1_2 = """
             Symbol: LRIR
             Name: Longer-term Real Interest Rate
             Calculation: MY10Y - CPI(YoY growth)
@@ -349,23 +359,81 @@ class Design:
                 html.H4("Correlation Matrix & Feature Selection", style={'color': '#d9d9d9', 'margin': '20px 0'}),
                 self.design_tabs(tab_titles, tab_elements, margin='0 0 20px', ),
                 dbc.Row([
-                    dbc.Col(self.design_oberve(comments_1, type_='Ul', title='Onservations'), width=6),
-                    dbc.Col(self.design_oberve(comments_2, type_='Ul', title='New Derived Data'), width=6),
+                    dbc.Col(self.design_observe(comments1_1, type_='Ul', title='Onservations'), width=6),
+                    dbc.Col(self.design_observe(comments1_2, type_='Ul', title='New Derived Data'), width=6),
                 ])
-            ])
+            ]),
+            DASH_LINE
         ]
+
+        
+        # (2) Skewness
+        # create graph
+        comments_2 ="""
+        IPM shows a strong left skewness, although the overall shape of the distribution is close to the normal distribution.
+        On the other hand, UMEMP shows a strong right skewness; the distribution shape is substantially different from a normal distribution.
+        To handle imbalanced data, the log scale is applied to UNEMP data; The right graph shows the histogram of log scaled UNEMP data; the distribution shape is not close to the normal distribution, and but the skewness was mitigated.
+        Since two economic data, UNEMP and LRIR, are not applied by the YoY growth changes (the original math unit is already a percentage), the shape of those distributions might not be close to normal distribution. This is one of the expected concerns and challenges that was mentioned in the introduction part.
+        """
+        # fig style
+        fig_styles = dict(
+            **FIG_DARK,
+            hovermode="x unified",
+            title=dict(x=0.5),
+            xaxis_title="", yaxis_title="",
+            height=300, width=400,
+            margin=dict(t=50, l=40, r=30, b=30)
+        )
+
+        # figures
+        hists = []
+        for d in ['CSENT', 'IPM', 'HOUSE', 'UNEMP', 'LRIR', 'SP500']:
+            skewness = skew(self.df3[d])
+            fig = px.histogram(self.df3, x=d, title=d+f' (skew: {skewness:.2f})', hover_data={d: False},
+                               color_discrete_sequence=['rgba(99, 110, 250, 0.60)'])
+            fig.update_layout(fig_styles)
+            hists.append(fig)
+
+        skew_log_UNEMP = skew(self.df4['UNEMP'])
+        hist2 = px.histogram(self.df4, x='UNEMP', hover_data={'UNEMP': False},
+                             title=f'Log Scale of UNEMP (skew:{skew_log_UNEMP:.2f})',
+                             color_discrete_sequence=['rgba(99, 110, 250, 0.60)'])
+        hist2.update_layout(fig_styles)
+        
+        # add element
+        elements += [
+            dbc.Row([
+                html.H4("Histogram / Skewness", style={'color': '#d9d9d9', 'margin': '20px 0'}),
+                self.horizon_plot(hists)
+            ]),
+            dbc.Row([
+                dbc.Col([
+                    self.design_observe(comments_2, type_='Ul', title='Observations for Distribution')
+                    ], width=8),
+                dbc.Col([
+                    dcc.Graph(figure=hist2)
+                ], width=4)
+            ], style={'alignItems': 'center', 'justifyContent': 'center'}),
+            DASH_LINE
+        ]
+
+
+        # (3) Scatter plots
+        scatters = []
+
+
 
         return dbc.Container(elements)
 
 
     # degisn shortcut
-    def design_oberve(self, comments: str, type_: str = '', title: str = 'Graph Interpretation'):
+    def design_observe(self, comments: str, type_: str = '', title: str = 'Graph Interpretation'):
         if type_ == 'Ul':
             lines = comments.strip().split('\n')
-            obs_comp = html.Ul([html.Li(c, style={'padding': '5px 0'}) for c in lines], style={'color': '#d9d9d9'})
+            obs_comp = html.Ul([html.Li(c, style={'margin': '5px 0'}) for c in lines], style={'color': '#d9d9d9'})
         elif type_ == 'Ol':
             lines = comments.strip().split('\n')
-            obs_comp = html.Ol([html.Li(c, style={'padding': '5px 0'}) for c in lines], style={'color': '#d9d9d9'})
+            obs_comp = html.Ol([html.Li(c, style={'margin': '5px 0'}) for c in lines], style={'color': '#d9d9d9'})
         else:
             obs_comp = html.P(comments, style={'color': '#d9d9d9'})
 
@@ -419,3 +487,82 @@ class Design:
         )
 
         return tabs
+
+    def horizon_plot(self, figs: list, legends: list = []):
+        # define return
+        elements = []
+        
+        if legends:
+            func_id = 'horizon_figs_'
+
+            elements += [
+                dmc.ChipGroup(
+                    id={'func': func_id, 'obj': 'legend'},
+                    children=[
+                        dmc.Chip(
+                            children=str(lg),
+                            value=str(lg),
+                            variant="outline", 
+                            color=COLORS[i]
+                            ) for i, lg in enumerate(legends)
+                    ],
+                    value=[str(sc) for sc in legends],
+                    multiple=True,
+                    style={'display': 'flex', 'justifyContent': 'center'}
+                )
+            ]
+
+        else:
+            func_id = 'horizon_figs'
+
+        elements = [
+            dbc.Row(
+                [dbc.Col(
+                    dbc.Card(
+                        dbc.CardBody([
+                            dcc.Graph(
+                                id={'func': func_id, 'obj': 'fig', 'id': str(i)},
+                                figure=fig,
+                            )
+                        ]),
+                        style={'margin': '5px'}
+                    ),
+                    width='auto',
+                    className='flex-nowrap',
+                    style={'display': 'inline-flex'}
+                ) for i, fig in enumerate(figs)],
+                style={'display': 'flex', 'flex-wrap': 'nowrap', 'overflowX': 'auto', 'width': '100%', 'gap': '10px'},
+            ),
+        ]
+
+        return dbc.Row(elements, style={'margin': '15px auto'})
+
+    def callbacks(self):
+        # for horizontal plot()
+        @self.app.callback(
+            output=Output({'func': 'horizon_figs_', 'obj': 'fig', 'id': ALL}, 'figure'),
+            inputs=Input({'func': 'horizon_figs_', 'obj': 'legend'}, 'value'),
+            state=State({'func': 'horizon_figs_', 'obj': 'fig', 'id': ALL}, 'figure')
+        )
+        def update_visibility(value, fig):
+            # Determine which input was triggered
+            triggered_id = ctx.triggered_id
+            if triggered_id:
+                # define output
+                outputs = []
+                # get the checked value as set 
+                checked = set(value)
+                # traversing all figure data
+                for f in fig:
+                    # define patch
+                    p = Patch()
+                    for i in range(len(f['data'])):
+                        p['data'][i].update({'visible': f['data'][i]['name'] in checked})
+                    
+                    outputs.append(p)
+                
+                return outputs
+            
+            else:
+                return no_update
+

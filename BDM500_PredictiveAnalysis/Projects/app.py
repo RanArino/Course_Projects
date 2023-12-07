@@ -16,13 +16,15 @@ origin_df = pd.read_csv(csv_file)
 
 app = Dash(external_stylesheets=[dbc.themes.DARKLY])
 
-design = Design(origin_df)
+design = Design(app, origin_df)
+# define all callbacks
+design.callbacks()
 
 app.layout = dbc.Container([
-    design.header(),
-    design.overview(),
-    design.dataset(),
-    design.data_preprocessing(),
+    #design.header(),
+    #design.overview(),
+    #design.dataset(),
+    #design.data_preprocessing(),
     design.data_observation(),
 ], fluid=True)
 
