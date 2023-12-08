@@ -53,7 +53,7 @@ TABLE_STYLE = dict(
 FIG_LAYOUT = dict(
     template='plotly_dark',
     yaxis=dict(ticksuffix=" "*2),
-    y2axis=dict(tickprefix=" "*2),
+    yaxis2=dict(tickprefix=" "*2),
 )
 # horizontal dash line
 DASH_LINE = html.Hr(style={'borderTop': '2px dashed #fff', 'margin': '75px 0'})
@@ -70,6 +70,20 @@ COLORS = [
     'rgba(255, 151, 255, 0.70)',
     'rgba(254, 203, 82, 0.70)'
 ]
+# extract color from fig.data
+def FIG_COLOR(fig_data):
+    #if len(fig_data) > 1:
+    #        fig_data = fig_data[0]
+
+    for name in ['marker', 'line', 'bar']: 
+        attribute = getattr(fig_data, name, None) 
+        if attribute:
+            color = getattr(attribute, 'color', None)
+            if color:
+                return color
+            
+    return False
+
 
 class Design:
     def __init__(self, app: Dash, df: pd.DataFrame):
@@ -482,8 +496,9 @@ class Design:
         ]
         # figure style
         fig4_styles = dict(
+            FIG_LAYOUT,
             title=dict(text='', x=0.5, y=0.9),
-            height=350, width=700, template='plotly_dark', hovermode='x unified',
+            height=350, width=700, hovermode='x unified',
             yaxis2=dict(overlaying='y', side='right', showgrid=False, zeroline=False),
             legend=dict(x=0.025, y=0.025, traceorder='normal', orientation='h',
                         xanchor='left', yanchor='bottom'),
@@ -507,9 +522,44 @@ class Design:
             dbc.Row([
                 html.H4("Trends of Economic data", style={'color': '#d9d9d9', 'margin': '20px 0'}),
                 self.horizon_plot(figs4, comments=comments_4),
-                #self.design_observe(comments_3, type_='Ul', title='Feature Relationships')
             ]),
             DASH_LINE
+        ]
+
+
+        ##### (5): Strafitied Histogram
+        # comments
+        comments_5 = """
+        CSENT is higher than 10%, SP500 is likely to increase compared to the previous year; otherwise, the probability of falling rises.
+        When IPM plunged from the previous year (e.i., 5% or more decline), SP500 is also likely to fall compared to the previous year.
+        YoY growth of HOUSE is less than 20%, SP500 is likely to decline compared to the previous year; otherwise, SP500 rose in almost all cases.
+        """
+        # fig style
+        fig5_styles = dict(
+            FIG_LAYOUT,
+            showlegend=False,
+            hovermode="x unified",
+            title=dict(x=0.5),
+            xaxis_title="", yaxis_title="",
+            height=300, width=400,
+            margin=dict(t=50, l=40, r=30, b=30)
+        )
+
+        # figure
+        figs5 = []
+        for d in self.features[1:]:
+            fig = px.histogram(
+                self.df4, x=d, color='SP500_Rise', title=d,
+                hover_data={d: False, 'SP500_Rise': False},
+                color_discrete_map={1.0: 'rgba(0, 204, 150, 0.70)', 0.0: 'rgba(239, 85, 59, 0.70)'})
+            fig.update_layout(fig5_styles)
+            figs5.append(fig)
+
+        # add element
+        elements += [
+            html.H4("Stratified Histogram", style={'color': '#d9d9d9', 'margin': '20px 0'}),
+            self.horizon_plot(figs5, legends=True),
+            self.design_observe(comments_5, type_='Ul')
         ]
 
         return dbc.Container(elements)
@@ -577,7 +627,7 @@ class Design:
 
         return tabs
 
-    def horizon_plot(self, figs: list, legends: list = [], comments: list = []):
+    def horizon_plot(self, figs: list, legends: bool = False, comments: list = []):
         # set id number
         self.horizon_plot_id += 1
         # define return
@@ -587,25 +637,30 @@ class Design:
             c_display = 'None'
             # create empty list
             comments = [''] * len(figs)
-
         else:
             c_display = 'block'
         
+        # commom legends
         if legends:
+            # funtionality id
             func_id = 'horizon_figs_'
+            # legend options (assume every figure has same legend)
+            options = [getattr(fig, 'legendgroup', str(i)) for i, fig in enumerate(figs[0].data)]
+            # color
+            colors = [FIG_COLOR(fig) for fig in figs[0].data]
 
             elements += [
                 dmc.ChipGroup(
                     id={'func': func_id, 'obj': 'legend', 'id': self.horizon_plot_id},
                     children=[
                         dmc.Chip(
-                            children=str(lg),
-                            value=str(lg),
+                            children=str(opt),
+                            value=str(opt),
                             variant="outline", 
-                            color=COLORS[i]
-                            ) for i, lg in enumerate(legends)
+                            color=color
+                            ) for opt, color in zip(options, colors)
                     ],
-                    value=[str(sc) for sc in legends],
+                    value=[str(opt) for opt in options],
                     multiple=True,
                     style={'display': 'flex', 'justifyContent': 'center'}
                 )
@@ -614,7 +669,7 @@ class Design:
         else:
             func_id = 'horizon_figs'
 
-        elements = [
+        elements += [
             dbc.Row(
                 [dbc.Col(
                     dbc.Card(
