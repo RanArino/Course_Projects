@@ -388,7 +388,7 @@ class Design:
         elements += [
             dbc.Row([
                 html.H4("Correlation Matrix & Feature Selection", style={'color': '#d9d9d9', 'margin': '20px 0'}),
-                self.design_tabs(tab_titles, tab_elements, margin='0 0 20px', ),
+                self.design_tabs(tab_titles, tab_elements, margin='0 0 20px'),
                 dbc.Row([
                     dbc.Col(self.design_observe(comments1_1, type_='Ul', title='Onservations'), width=6),
                     dbc.Col(self.design_observe(comments1_2, type_='Ul', title='New Derived Data'), width=6),
@@ -408,12 +408,12 @@ class Design:
         """
         # fig style
         fig2_styles = dict(
-            **FIG_LAYOUT,
+            FIG_LAYOUT,
             hovermode="x unified",
             title=dict(x=0.5),
             xaxis_title="", yaxis_title="",
             height=300, width=400,
-            margin=dict(t=50, l=40, r=30, b=30)
+            margin=dict(t=60, l=40, r=30, b=30)
         )
 
         # figures
@@ -451,14 +451,22 @@ class Design:
 
         # (3) Scatter plots
         #observations
-        comments_3 = """
+        comments_3_1 = """
         There is a positive linear relationship (despite wider bands) between the SP500 index and three economic indicators (CSENT, IPM, and HOUSE).
         CSENT are positively correlated with other features, which means that the consumer sentiment data could be important factor of other economic data.
         A possible negative correlation could be found between IPM and UNEMP; the more people are working, the higher productions are.
         """
+        comments_3_2 = """
+        Several indicators show interesting insights into SP500. Also, those observations could be helpful to implement the robust tree algorithm.
+        When IPM or CSENT  declined by over 10% or 20% from a year before, respectively, SP500 is likely to be below the level of the previous year.
+        When HOUSE is above 25% regardless of what kinds of economic indicators as the other axis, SP500 is likely to rise from the previous year.
+        When the IPM and HOUSE decline simultaneously, SP500 will be affected negative impact. 
+        Hence, three economic indicators, CSENT, IMP, and HOUSE, may have a significant impact on whether the SP500 rises or falls on YoY growth base.
+        """
         # figure style
         fig3_styles = dict(
-            template='plotly_dark',
+            FIG_LAYOUT,
+            showlegend=False,
             title=dict(x=0.5),
             xaxis_title="", yaxis_title="",
             height=300, width=400,
@@ -466,20 +474,40 @@ class Design:
         )
 
         # figures
-        figs3 = []
+        figs3_1 = []
+        figs3_2 = []
         pairs = list(combinations(self.features, 2))  # get all pairs of combinations
         for d in pairs:
-            fig = px.scatter(self.df4, x=d[0], y=d[1], title=f'{d[0]} vs {d[1]}', 
+            fig1 = px.scatter(self.df4, x=d[0], y=d[1], title=f'{d[0]}(x) vs {d[1]}(y)', 
                              color_discrete_sequence=[COLORS[0]])
-            fig.update_layout(fig3_styles)
-            figs3.append(fig)
+            fig1.update_layout(fig3_styles)
+            figs3_1.append(fig1)
+
+            if d[0] != 'SP500':
+                fig2 = px.scatter(
+                    self.df4, x=d[0], y=d[1], title=f"{d[0]}(x) vs {d[1]}(y)",
+                    color=self.df4['SP500_Rise'].astype('category'), labels={'color': 'SP500'},
+                    color_discrete_map={1.0: 'rgba(0, 204, 150, 0.60)', 0.0: 'rgba(239, 85, 59, 0.60)'})
+                fig2.update_layout(fig3_styles)
+                figs3_2.append(fig2)
+
+        # define tabs
+        tab_elements_2 = [
+            [
+                self.horizon_plot(figs3_1),
+                self.design_observe(comments_3_1, type_='Ul', title='Feature Relationships')
+            ],
+            [
+                self.horizon_plot(figs3_2, legends=True),
+                self.design_observe(comments_3_2, type_='Ul', title='Feature Relationships')
+            ]
+        ]
 
         # add elements
         elements += [
             dbc.Row([
                 html.H4("Scatter Plots Among Features", style={'color': '#d9d9d9', 'margin': '20px 0'}),
-                self.horizon_plot(figs3),
-                self.design_observe(comments_3, type_='Ul', title='Feature Relationships')
+                self.design_tabs(['Normal', 'Stratified'], tab_elements_2, margin='0 0 20px'),
             ]),
             DASH_LINE
         ]
@@ -531,7 +559,7 @@ class Design:
         # comments
         comments_5 = """
         CSENT is higher than 10%, SP500 is likely to increase compared to the previous year; otherwise, the probability of falling rises.
-        When IPM plunged from the previous year (e.i., 5% or more decline), SP500 is also likely to fall compared to the previous year.
+        When IPM plunged from the previous year (e.g., 5% or more decline), SP500 is also likely to fall compared to the previous year.
         YoY growth of HOUSE is less than 20%, SP500 is likely to decline compared to the previous year; otherwise, SP500 rose in almost all cases.
         """
         # fig style
@@ -561,6 +589,7 @@ class Design:
             self.horizon_plot(figs5, legends=True),
             self.design_observe(comments_5, type_='Ul')
         ]
+
 
         return dbc.Container(elements)
 
