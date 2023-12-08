@@ -1,7 +1,8 @@
-from dash import Dash, html, dash_table, dcc, Output, Input, State, ALL, ctx, Patch, no_update
+from dash import Dash, html, dash_table, dcc, Output, Input, State, ALL, MATCH, ctx, Patch, no_update
 import dash_bootstrap_components as dbc
 import dash_mantine_components as dmc
 import plotly.express as px
+import plotly.graph_objects as go 
 
 import numpy as np
 import pandas as pd
@@ -49,13 +50,26 @@ TABLE_STYLE = dict(
     }
 )
 #  plotly figure design
-FIG_DARK = dict(
+FIG_LAYOUT = dict(
     template='plotly_dark',
+    yaxis=dict(ticksuffix=" "*2),
+    y2axis=dict(tickprefix=" "*2),
 )
 # horizontal dash line
 DASH_LINE = html.Hr(style={'borderTop': '2px dashed #fff', 'margin': '75px 0'})
 # color
-COLORS = ['#636EFA', '#EF553B', '#00CC96', '#AB63FA', '#FFA15A', '#19D3F3', '#FF6692', '#B6E880', '#FF97FF', '#FECB52']
+COLORS = [
+    'rgba(99, 110, 250, 0.70)',
+    'rgba(239, 85, 59, 0.70)',
+    'rgba(0, 204, 150, 0.70)',
+    'rgba(171, 99, 250, 0.70)',
+    'rgba(255, 161, 90, 0.70)',
+    'rgba(25, 211, 243, 0.70)',
+    'rgba(255, 102, 146, 0.70)',
+    'rgba(182, 232, 128, 0.70)',
+    'rgba(255, 151, 255, 0.70)',
+    'rgba(254, 203, 82, 0.70)'
+]
 
 class Design:
     def __init__(self, app: Dash, df: pd.DataFrame):
@@ -63,6 +77,8 @@ class Design:
         self.app = app
         # assign original data frame
         self.origin = df
+        # initialize id
+        self.horizon_plot_id = 0
 
         # Data Process
         #  for preprocessing
@@ -92,7 +108,8 @@ class Design:
         # drop MY10Y and CPI
         self.df3.drop(['MY10Y', 'CPI'], axis=1, inplace=True)
         # show new correlation matrix
-        self.corr2 = self.df3[['CSENT', 'IPM', 'HOUSE', 'UNEMP', 'LRIR', 'SP500']].corr().reset_index(names='')
+        self.features = ['SP500', 'CSENT', 'IPM', 'HOUSE', 'UNEMP', 'LRIR']
+        self.corr2 = self.df3[self.features].corr().reset_index(names='')
         
         # change to log(UNEMP)
         self.df4 = self.df3.copy()
@@ -253,7 +270,7 @@ class Design:
         #  graph
         fig = px.line(self.group_year, x='Year', y='Month', title='Number of monthly data on each year')
         fig.update_layout(
-            FIG_DARK,
+            FIG_LAYOUT,
             hovermode="x unified",    
         )
         # graph observations 
@@ -326,7 +343,7 @@ class Design:
         # store all elements
         elements = [html.H3('Data Observations', style={'textAlign': 'center', 'margin': '30px auto'})]
 
-        # (1) Correlation Matrix & Feature Selection
+        ##### (1) Correlation Matrix & Feature Selection
         # setting tabs for two matrics
         tab_titles = ['Original Corr', 'New Corr']
         tab_elements = [
@@ -367,8 +384,8 @@ class Design:
         ]
 
         
-        # (2) Skewness
-        # create graph
+        ##### (2) Skewness
+        # observations
         comments_2 ="""
         IPM shows a strong left skewness, although the overall shape of the distribution is close to the normal distribution.
         On the other hand, UMEMP shows a strong right skewness; the distribution shape is substantially different from a normal distribution.
@@ -376,8 +393,8 @@ class Design:
         Since two economic data, UNEMP and LRIR, are not applied by the YoY growth changes (the original math unit is already a percentage), the shape of those distributions might not be close to normal distribution. This is one of the expected concerns and challenges that was mentioned in the introduction part.
         """
         # fig style
-        fig_styles = dict(
-            **FIG_DARK,
+        fig2_styles = dict(
+            **FIG_LAYOUT,
             hovermode="x unified",
             title=dict(x=0.5),
             xaxis_title="", yaxis_title="",
@@ -386,25 +403,25 @@ class Design:
         )
 
         # figures
-        hists = []
-        for d in ['CSENT', 'IPM', 'HOUSE', 'UNEMP', 'LRIR', 'SP500']:
+        figs2 = []
+        for d in self.features:
             skewness = skew(self.df3[d])
             fig = px.histogram(self.df3, x=d, title=d+f' (skew: {skewness:.2f})', hover_data={d: False},
-                               color_discrete_sequence=['rgba(99, 110, 250, 0.60)'])
-            fig.update_layout(fig_styles)
-            hists.append(fig)
+                               color_discrete_sequence=[COLORS[0]])
+            fig.update_layout(fig2_styles)
+            figs2.append(fig)
 
         skew_log_UNEMP = skew(self.df4['UNEMP'])
         hist2 = px.histogram(self.df4, x='UNEMP', hover_data={'UNEMP': False},
                              title=f'Log Scale of UNEMP (skew:{skew_log_UNEMP:.2f})',
-                             color_discrete_sequence=['rgba(99, 110, 250, 0.60)'])
-        hist2.update_layout(fig_styles)
+                             color_discrete_sequence=[COLORS[0]])
+        hist2.update_layout(fig2_styles)
         
         # add element
         elements += [
             dbc.Row([
                 html.H4("Histogram / Skewness", style={'color': '#d9d9d9', 'margin': '20px 0'}),
-                self.horizon_plot(hists)
+                self.horizon_plot(figs2)
             ]),
             dbc.Row([
                 dbc.Col([
@@ -419,9 +436,81 @@ class Design:
 
 
         # (3) Scatter plots
-        scatters = []
+        #observations
+        comments_3 = """
+        There is a positive linear relationship (despite wider bands) between the SP500 index and three economic indicators (CSENT, IPM, and HOUSE).
+        CSENT are positively correlated with other features, which means that the consumer sentiment data could be important factor of other economic data.
+        A possible negative correlation could be found between IPM and UNEMP; the more people are working, the higher productions are.
+        """
+        # figure style
+        fig3_styles = dict(
+            template='plotly_dark',
+            title=dict(x=0.5),
+            xaxis_title="", yaxis_title="",
+            height=300, width=400,
+            margin=dict(t=50, l=40, r=30, b=30)
+        )
 
+        # figures
+        figs3 = []
+        pairs = list(combinations(self.features, 2))  # get all pairs of combinations
+        for d in pairs:
+            fig = px.scatter(self.df4, x=d[0], y=d[1], title=f'{d[0]} vs {d[1]}', 
+                             color_discrete_sequence=[COLORS[0]])
+            fig.update_layout(fig3_styles)
+            figs3.append(fig)
 
+        # add elements
+        elements += [
+            dbc.Row([
+                html.H4("Scatter Plots Among Features", style={'color': '#d9d9d9', 'margin': '20px 0'}),
+                self.horizon_plot(figs3),
+                self.design_observe(comments_3, type_='Ul', title='Feature Relationships')
+            ]),
+            DASH_LINE
+        ]
+
+        
+        ##### (4) Trends of Economic data
+        # observations
+        comments_4 = [
+            'There are a lot of periods when the CSENT and SP500 moved together. In 2010 and 2022, the consumer sentiment bottomed in advance before SP500.',
+            'IPM has been correlated to SP500 historically. Once IPM rebounded, SP500 is highly likely to record a strong reversal in the short periods.',
+            'HOUSE also correlated to SP500. If housing purchases cause the renewal of furniture and home appliances, the rise in consumption might lead to SP500 higher.',
+            'The bottom of SP500 is likely to occur right before the top of UNEMP historically; both data could be inversely related to each other.',
+            'In several SP500 bottoms (2001-2002, 2008-2009, and 2022-2023), LRIR was likely to move forword, which imply to be caused the fall in CPI or rise in MY10Y.'
+        ]
+        # figure style
+        fig4_styles = dict(
+            title=dict(text='', x=0.5, y=0.9),
+            height=350, width=700, template='plotly_dark', hovermode='x unified',
+            yaxis2=dict(overlaying='y', side='right', showgrid=False, zeroline=False),
+            legend=dict(x=0.025, y=0.025, traceorder='normal', orientation='h',
+                        xanchor='left', yanchor='bottom'),
+            margin=dict(t=60, l=40, r=40, b=40)
+        )
+
+        # figures
+        figs4 = []
+        for d in self.features[1:]:  # only economic indicator
+            fig = go.Figure()
+            fig4_styles['title']['text'] = f'{d} vs SP500'
+            fig.update_layout(fig4_styles)
+            fig.add_traces([
+                go.Scatter(x=self.df4['Date'], y=self.df4[d], mode='lines', name=d, line=(dict(color=COLORS[0]))),
+                go.Scatter(x=self.df4['Date'], y=self.df4['SP500'], mode='lines', name='SP500', line=dict(color='rgba(200, 200, 200, 0.5)'), yaxis="y2")
+            ])
+            figs4.append(fig)
+            
+        # add elements
+        elements += [
+            dbc.Row([
+                html.H4("Trends of Economic data", style={'color': '#d9d9d9', 'margin': '20px 0'}),
+                self.horizon_plot(figs4, comments=comments_4),
+                #self.design_observe(comments_3, type_='Ul', title='Feature Relationships')
+            ]),
+            DASH_LINE
+        ]
 
         return dbc.Container(elements)
 
@@ -438,7 +527,7 @@ class Design:
             obs_comp = html.P(comments, style={'color': '#d9d9d9'})
 
         div = html.Div([
-            html.H5(title, style={'color': '#d9d9d9'}),
+            html.H5(title, style={'color': '#d9d9d9', 'padding': '0 0 10px'}),
             obs_comp,
         ], style={
             'padding': '20px',
@@ -488,16 +577,26 @@ class Design:
 
         return tabs
 
-    def horizon_plot(self, figs: list, legends: list = []):
+    def horizon_plot(self, figs: list, legends: list = [], comments: list = []):
+        # set id number
+        self.horizon_plot_id += 1
         # define return
         elements = []
+        # define comments
+        if not comments:
+            c_display = 'None'
+            # create empty list
+            comments = [''] * len(figs)
+
+        else:
+            c_display = 'block'
         
         if legends:
             func_id = 'horizon_figs_'
 
             elements += [
                 dmc.ChipGroup(
-                    id={'func': func_id, 'obj': 'legend'},
+                    id={'func': func_id, 'obj': 'legend', 'id': self.horizon_plot_id},
                     children=[
                         dmc.Chip(
                             children=str(lg),
@@ -519,20 +618,25 @@ class Design:
             dbc.Row(
                 [dbc.Col(
                     dbc.Card(
-                        dbc.CardBody([
-                            dcc.Graph(
-                                id={'func': func_id, 'obj': 'fig', 'id': str(i)},
-                                figure=fig,
-                            )
-                        ]),
-                        style={'margin': '5px'}
+                        [
+                            dbc.CardBody([
+                                dcc.Graph(
+                                    id={'func': func_id, 'obj': 'fig', 'fig_id': str(i), 'id': self.horizon_plot_id},
+                                    figure=fig,
+                                ),
+                                dbc.CardFooter(
+                                    comments[i], 
+                                    style={'display': c_display, 'padding': '20px'}
+                                ),
+                            ], style={'margin': '5px', 'maxWidth': 'min-content'}),
+                        ],
+                        outline=True,
                     ),
-                    width='auto',
                     className='flex-nowrap',
-                    style={'display': 'inline-flex'}
+                    style={'display': 'inline-flex', 'minWidth': 'fit-content', 'margin': '10px'}
                 ) for i, fig in enumerate(figs)],
-                style={'display': 'flex', 'flex-wrap': 'nowrap', 'overflowX': 'auto', 'width': '100%', 'gap': '10px'},
-            ),
+                style={'display': 'inline-flex', 'flex-wrap': 'nowrap', 'overflowX': 'auto', 'width': '100%', 'gap': '10px'},
+            )
         ]
 
         return dbc.Row(elements, style={'margin': '15px auto'})
@@ -540,9 +644,9 @@ class Design:
     def callbacks(self):
         # for horizontal plot()
         @self.app.callback(
-            output=Output({'func': 'horizon_figs_', 'obj': 'fig', 'id': ALL}, 'figure'),
-            inputs=Input({'func': 'horizon_figs_', 'obj': 'legend'}, 'value'),
-            state=State({'func': 'horizon_figs_', 'obj': 'fig', 'id': ALL}, 'figure')
+            output=Output({'func': 'horizon_figs_', 'obj': 'fig', 'fig_id': ALL, 'id': MATCH}, 'figure'),
+            inputs=Input({'func': 'horizon_figs_', 'obj': 'legend', 'id': MATCH}, 'value'),
+            state=State({'func': 'horizon_figs_', 'obj': 'fig', 'fig_id': ALL, 'id': MATCH}, 'figure')
         )
         def update_visibility(value, fig):
             # Determine which input was triggered
