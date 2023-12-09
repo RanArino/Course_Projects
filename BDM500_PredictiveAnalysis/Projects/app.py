@@ -1,4 +1,4 @@
-from dash import Dash, dash_table
+from dash import Dash
 import dash_bootstrap_components as dbc
 
 import os
@@ -22,11 +22,11 @@ design.callbacks()
 
 app.layout = dbc.Container([
     design.header(),
-    #design.overview(),
+    design.overview(),
     #design.dataset(),
     #design.data_preprocessing(),
     #design.data_observation(),
-    design.model_descript(),
+    design.model_descript()
 ], fluid=True)
 
 if __name__ == "__main__":

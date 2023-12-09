@@ -93,7 +93,7 @@ class Design:
         # assign original data frame
         self.origin = df
         # initialize id
-        self.horizon_cards_id = 0
+        self.design_ha_figs_id = 0
 
         # Data Process
         #  for preprocessing
@@ -117,7 +117,7 @@ class Design:
         self.df3.dropna(inplace=True)
         self.df3.reset_index(drop=True, inplace=True)
         #  correlation matrics (1)
-        self.corr1 = self.df3[['MY10Y', 'CPI', 'CSENT', 'IPM', 'HOUSE', 'UNEMP', 'SP500']].corr().reset_index(names='')
+        self.corr1 = self.df3[['SP500', 'MY10Y', 'CPI', 'CSENT', 'IPM', 'HOUSE', 'UNEMP']].corr().reset_index(names='')
         # add new data
         self.df3.insert(loc=9, column='LRIR', value=self.df3['MY10Y'] - self.df3['CPI'])
         # drop MY10Y and CPI
@@ -230,7 +230,7 @@ class Design:
             {"Symbol": "IPM  *1*3", "Dtype": "float", "Description": "Industrial Production in Manufacturing", "Data Source": "[Fred](https://fred.stlouisfed.org/series/IPMAN)"},
             {"Symbol": "HOUSE  *1*3", "Dtype": "float", "Description": "New One Family Houses Sold", "Data Source": "[Fred](https://fred.stlouisfed.org/series/HSN1F)"},
             {"Symbol": "UNEMP  *3", "Dtype": "float", "Description": "Unemployment rate", "Data Source": "[Fred](https://fred.stlouisfed.org/series/UNRATE)"},
-            {"Symbol": "LRIR", "Dtype": "float", "Description": "Long-term Real Interest rate; the subtraction of MY10Y by %YoY CPI", "Data Source": ""}
+            {"Symbol": "LRIR", "Dtype": "float", "Description": "Long-term Real Interest Rate; the subtraction of MY10Y by %YoY CPI", "Data Source": ""}
         ]
         # notifications
         notifications = [
@@ -266,7 +266,7 @@ class Design:
         """
         Showing the data preprocessing phases step by step.
         (1): Addressing Incompleteness in Time Series
-        (2): 
+        (2): Data Modification / Feature Selection
         """
         elements = [
             html.H3('Data Preprocessing', style={'textAlign': 'center', 'margin': '30px auto'})
@@ -313,7 +313,7 @@ class Design:
                     ], width=7
                     ),
                 ], justify='center', align='center'),
-                DASH_LINE
+                S_DASH_LINE
             ])
         ]
 
@@ -427,7 +427,7 @@ class Design:
         elements += [
             dbc.Row([
                 html.H4("Histogram / Skewness", style={'color': '#d9d9d9', 'margin': '20px 0'}),
-                self.horizon_cards(figs2)
+                self.design_ha_figs(figs2)
             ]),
             dbc.Row([
                 dbc.Col([
@@ -450,7 +450,7 @@ class Design:
         """
         comments_3_2 = """
             Several indicators show interesting insights into SP500. Also, those observations could be helpful to implement the robust tree algorithm.
-            When IPM or CSENT  declined by over 10% or 20% from a year before, respectively, SP500 is likely to be below the level of the previous year.
+            When CSENT or IPM declined by over 10% or 20% from a year before, respectively, SP500 is likely to be below the level of the previous year.
             When HOUSE is above 25% regardless of what kinds of economic indicators as the other axis, SP500 is likely to rise from the previous year.
             When the IPM and HOUSE decline simultaneously, SP500 will be affected negative impact. 
             Hence, three economic indicators, CSENT, IMP, and HOUSE, may have a significant impact on whether the SP500 rises or falls on YoY growth base.
@@ -486,11 +486,11 @@ class Design:
         # define tabs
         tab_elements_2 = [
             [
-                self.horizon_cards(figs3_1),
+                self.design_ha_figs(figs3_1),
                 self.design_observe(comments_3_1, type_='Ul', title='Feature Relationships')
             ],
             [
-                self.horizon_cards(figs3_2, legends=True),
+                self.design_ha_figs(figs3_2, legends=True),
                 self.design_observe(comments_3_2, type_='Ul', title='Feature Relationships')
             ]
         ]
@@ -541,7 +541,7 @@ class Design:
         elements += [
             dbc.Row([
                 html.H4("Trends of Economic data", style={'color': '#d9d9d9', 'margin': '20px 0'}),
-                self.horizon_cards(figs4, comments=comments_4),
+                self.design_ha_figs(figs4, comments=comments_4),
             ]),
             DASH_LINE
         ]
@@ -578,7 +578,7 @@ class Design:
         # add element
         elements += [
             html.H4("Stratified Histogram", style={'color': '#d9d9d9', 'margin': '20px 0'}),
-            self.horizon_cards(figs5, legends=True),
+            self.design_ha_figs(figs5, legends=True),
             self.design_observe(comments_5, type_='Ul'),
             DASH_LINE
         ]
@@ -588,10 +588,16 @@ class Design:
     def model_descript(self):
         # core theories
         #  titles
-        ct_r1_title = ['Incremental Learning', 'Scopes (SC)', 'Future Prediction (FP)']
-        ct_r2_title = ['Moving Averages (MA)', 'Rolling Standardization']
+        ct_titles = [
+            'Incremental Learning', 
+            'Scopes (SC)', 
+            'Future Prediction (FP)', 
+            'Moving Averages (MA)', 
+            'Rolling Standardization'
+        ]
+  
         #  descriptions
-        ct_r1_descript = [
+        ct_descripts = [
             """
                 The first 10 years of data are trained for defining the initial set of parameters.
                 Model parameters are updated by the gradient descent approach of learning the rest of the data one by one.
@@ -607,8 +613,6 @@ class Design:
                 If FP is 6 (months), the model attempts to predict the growth of SP500 after six months.
                 The longer FP is set, the lower the predictive performance the model could have.
             """,
-        ]
-        ct_r2_descript = [
             """
                 Three types of moving averages (from one to three months) are applied to the target variable "SP500".
                 One moving average indicates normal value; nothing smoothing technique is applied.
@@ -619,17 +623,16 @@ class Design:
                 First 10-year of data are normally standardized by the mean and standard deviation(std).
                 The rest of data are standardized by the mean and std of the most recent 10-year of historical data.
             """
-
         ]
 
         # models
         #  titles
-        m_titles = [
+        m1_titles = [
             'Linear Regression / Logistic Regression', 
             'Classification and Regression Tree (CART)'
             ] 
         #  descriptions
-        m_descripts = [
+        m1_descripts = [
             """
                 Applying all five economic indicators
                 Employing incremental learning approach (Online Learning)
@@ -643,27 +646,53 @@ class Design:
             """
             ]
         
+        # model metrics
+        m2_titles = ['Regression Metics', 'Classification Metrics']
+        m2_descript = [
+            """
+                Root Mean Square (RMSE): How much errors could occur between the predicted prices and the actual ones.
+                Standard Error of Estimate (SE): How much variation could occur in the actual target based on the same condition of independent variables.
+                Coffeficient of Determination (R2): How well the regression model explains the variation of a target value.
+                Adjusted R2 (Adj-R2): R2 with the penalty for the number of independent variables.
+            """,
+
+            """
+                Accuracy: How the model can correctly predict the target values.
+                Precision: How the model can avoid false positives.
+                Recall: How the model can avoid false negatives.
+                F1 Score: How the model can balance precision and recall.
+                AUC (Area Under the ROC Curve): How the model can summarize the ROC curve.
+            """
+        ]
+        
         # define elements
         elements =[
             html.H3('Model Description', style={'textAlign': 'center', 'margin': '30px auto'}),
             dbc.Row([
-                self.design_cards(ct_r1_title, ct_r1_descript, "Ul"),
+                html.H4("Core Applications", style={'color': '#d9d9d9', 'margin': '20px 0'}),
+                self.design_ha_cards(ct_titles, ct_descripts, "Ul", 500),
                 S_DASH_LINE,
-                self.design_cards(ct_r2_title, ct_r2_descript, "Ul"),
+                html.H4("Descriptions of Three Models", style={'color': '#d9d9d9', 'margin': '20px 0'}),
+                self.design_acccordion(m1_titles, m1_descripts, "Ul"),
                 S_DASH_LINE,
-                self.design_cards(m_titles, m_descripts, "Ul"),
+                html.H4("Model KPIs / Metrics", style={'color': '#d9d9d9', 'margin': '20px 0'}),
+                self.design_acccordion(m2_titles, m2_descript, type_='Ul')
             ]),
             DASH_LINE
         ]
 
         return dbc.Container(elements)
-    
-    def model_kpis(self):
-        pass
-
 
     def model_result(self):
-        pass
+        elements = [
+            html.H3('Model Results / Performances', style={'textAlign': 'center', 'margin': '30px auto'})
+        ]
+
+
+
+        elements += [DASH_LINE]
+
+        return elements
 
     def model_finalize(self):
         pass
@@ -674,20 +703,26 @@ class Design:
     def further_approach(self):
         pass
 
-    # Degisn Shortcut
-    def design_observe(self, comments: str, type_: str = 'P', title: str = 'Graph Interpretation'):
+    # Design Shortcut
+    def design_texts(self, texts: str, type_: str = "P"):
+        # define style
+        content_style={'lineHeight': 2, 'color': 'F4F4F4'}
+        # define list or paragraph
         if type_ == 'Ul':
-            lines = comments.strip().split('\n')
-            obs_comp = html.Ul([html.Li(c, style={'margin': '5px 0'}) for c in lines], style={'color': '#d9d9d9'})
-        elif type_ == 'Ol':
-            lines = comments.strip().split('\n')
-            obs_comp = html.Ol([html.Li(c, style={'margin': '5px 0'}) for c in lines], style={'color': '#d9d9d9'})
+            lines = texts.strip().split('\n')
+            return html.Ul([html.Li(c, style={'margin': '5px 0'}) for c in lines], style=content_style)
+        
+        elif type == 'Ol':
+            lines = texts.strip().split('\n')
+            return html.Ol([html.Li(c, style={'margin': '5px 0'}) for c in lines], style=content_style)
+        
         else:
-            obs_comp = html.P(comments, style={'color': '#d9d9d9'})
+            return html.P(texts, style=content_style)
 
+    def design_observe(self, texts: str, type_: str = 'P', title: str = 'Graph Interpretation'):
         div = html.Div([
             html.H5(title, style={'color': '#d9d9d9', 'padding': '0 0 10px'}),
-            obs_comp,
+            self.design_texts(texts, type_),
         ], style={
             'padding': '20px',
             'border': '1px solid #444',
@@ -699,27 +734,87 @@ class Design:
 
         return div
 
+    def design_tabs(self, titles: list, contents: list, **styles):    
+        elements = html.Div([
+            dbc.Tabs([
+                dbc.Tab(
+                    label=title, 
+                    children=[html.Div(content)],
+                )
+                for title, content in zip(titles, contents)
+            ])
+        ],
+        style={**styles}
+        )
+
+        return elements
+
+    def design_acccordion(self, titles: list, contents: list, type_: str = 'P', mode: str = 'ha'):
+        # direction
+        f_direct = 'row' if mode == 'ha' else 'column'
+        # define elements
+        elements = html.Div([
+            dbc.Row([
+                # multiple cols
+                dbc.Col(
+                    dbc.Accordion(
+                        [
+                            dbc.AccordionItem(
+                                title=title,
+                                children=dbc.Card(
+                                    dbc.CardBody(
+                                        self.design_texts(content, type_),
+                                        style={'height': '100%', 'fontSize': '16px'}
+                                    ),
+                                    style={'height': '100%', 'margin': 'auto'}
+                                ),
+                                style={'fonrSize': '20px', 'color': '#F9F9F9', 'margin': '5px'}
+                            )
+                        ],
+                        start_collapsed=False,
+                    ),
+                    style={'margin': '10px'}
+                )
+                for title, content in zip(titles, contents) 
+
+            ], style={'flexDirection': f_direct, 'justifyContent': 'space-around', 'width': '100%'})
+        ], style={'display': 'flex', 'flexWrap': 'wrap', 'alignItems': 'center'})
+
+        return elements 
+
+    def design_card_half(self, titles: list, texts: list, type_: str):
+        """
+        A single card; two sections for two contents
+        """
+        element = dbc.Card(
+            dbc.CardBody([
+                dbc.Row([
+                    dbc.Col(
+                        html.Div([
+                            html.H5(titles[0], className="card-title", style={'padding': '0 0 10px'}),
+                            self.design_texts(texts[0], type_)
+                        ]),
+                        #className="border-end",
+                        style={"padding": "20px", "borderRight": "2px dashed #777777"},
+                        width=6
+                    ),
+                    dbc.Col(
+                        html.Div([
+                            html.H5(titles[1], className="card-title", style={'padding': '0 0 10px'}),
+                            self.design_texts(texts[1], type_)
+                        ]),
+                        style={"padding": "20px"},
+                        width=6
+                    )
+                ]),
+            ]),
+        )
+
+        return element
+
     def design_cards(self, titles: list, contents: list, type_: str = 'P', mode: str = 'ha'):
         # direction
         f_direct = 'row' if mode == 'ha' else 'column'
-        # content style
-        content_style={'lineHeight': 2, 'color': 'F4F4F4'}
-        # define all possble functions
-        def list_bullet(text: str):
-            lines = text.strip().split('\n')
-            return html.Ul([html.Li(c, style={'margin': '5px 0'}) for c in lines], style=content_style)
-        
-        def list_number(text: str):
-            lines = text.strip().split('\n')
-            return html.Ul([html.Li(c, style={'margin': '5px 0'}) for c in lines], style=content_style)
-
-        def paragraph(text: str):
-            return html.P(text, style=content_style)
-        
-        #  dictionary of function
-        content_funcs = {'Ul': list_bullet, 'Ol': list_number, 'P': paragraph}
-        func = content_funcs.get(type_, 'P')
-
         # define elements
         elements = html.Div([
             dbc.Row([
@@ -728,7 +823,7 @@ class Design:
                         [
                             dbc.CardHeader(html.H5(title, className='card-title', style={'color': 'F9F9F9', 'margin': '5px 0'})),
                             dbc.CardBody(
-                                [func(content)], 
+                                [self.design_texts(content, type_)], 
                                 style={'height': '100%', 'fontSize': 16})
                         ], 
                         style={'height': '100%', 'margin': 'auto', 'marginBottom': '15px'}
@@ -740,25 +835,39 @@ class Design:
         ], style={'display': 'flex', 'flexWrap': 'wrap', 'alignItems': 'center'})
 
         return elements
-    
-    def design_tabs(self, titles: list, elements: list, **styles):    
-        tabs = html.Div([
-            dbc.Tabs([
-                dbc.Tab(
-                    label=titles[i], 
-                    children=[html.Div(elements[i])],
-                )
-                for i in range(len(elements))
-            ])
-        ],
-        style={**styles}
-        )
 
-        return tabs
+    def design_ha_cards(self, titles: list, contents: list, type_: str = 'P', width: int = 400):
+        elements = [
+            dbc.Row(
+                # multiple cols
+                [
+                    dbc.Col(
+                        dbc.Card(
+                            [
+                                dbc.CardHeader(
+                                    html.H5(title, className='card-title', style={'color': 'F9F9F9', 'margin': '5px 0'})
+                                ),
+                                dbc.CardBody(
+                                    [self.design_texts(content, type_)], 
+                                    style={'height': '100%', 'fontSize': 16})
+                            ], 
+                            outline=True,
+                            style={'height': '100%', 'margin': 'auto', 'marginBottom': '15px'},
+            
+                        ),
+                        className='flex-nowrap',
+                        style={'display': 'inline-flex', 'minWidth': width,  'maxWidth': width, 'margin': '10px'}
+                    ) for title, content in zip(titles, contents)
+                ],
+                style={'display': 'inline-flex', 'flex-wrap': 'nowrap', 'overflowX': 'auto', 'width': '100%', 'gap': '10px'},
+            )
+        ]
 
-    def horizon_cards(self, figs: list, legends: bool = False, comments: list = []):
+        return dbc.Row(elements, style={'margin': '15px auto'})
+
+    def design_ha_figs(self, figs: list, legends: bool = False, comments: list = []):
         # set id number
-        self.horizon_cards_id += 1
+        self.design_ha_figs_id += 1
         # define return
         elements = []
         # define comments
@@ -772,7 +881,7 @@ class Design:
         # commom legends
         if legends:
             # funtionality id
-            func_id = 'horizon_figs_'
+            func_id = 'design_ha_figs_'
             # legend options (assume every figure has same legend)
             options = [getattr(fig, 'legendgroup', str(i)) for i, fig in enumerate(figs[0].data)]
             # color
@@ -780,7 +889,7 @@ class Design:
 
             elements += [
                 dmc.ChipGroup(
-                    id={'func': func_id, 'obj': 'legend', 'id': self.horizon_cards_id},
+                    id={'func': func_id, 'obj': 'legend', 'id': self.design_ha_figs_id},
                     children=[
                         dmc.Chip(
                             children=str(opt),
@@ -796,7 +905,7 @@ class Design:
             ]
 
         else:
-            func_id = 'horizon_figs'
+            func_id = 'design_ha_figs'
 
         elements += [
             dbc.Row(
@@ -805,7 +914,7 @@ class Design:
                         [
                             dbc.CardBody([
                                 dcc.Graph(
-                                    id={'func': func_id, 'obj': 'fig', 'fig_id': str(i), 'id': self.horizon_cards_id},
+                                    id={'func': func_id, 'obj': 'fig', 'fig_id': str(i), 'id': self.design_ha_figs_id},
                                     figure=fig,
                                 ),
                                 dbc.CardFooter(
@@ -828,9 +937,9 @@ class Design:
     def callbacks(self):
         # for horizontal plot()
         @self.app.callback(
-            output=Output({'func': 'horizon_figs_', 'obj': 'fig', 'fig_id': ALL, 'id': MATCH}, 'figure'),
-            inputs=Input({'func': 'horizon_figs_', 'obj': 'legend', 'id': MATCH}, 'value'),
-            state=State({'func': 'horizon_figs_', 'obj': 'fig', 'fig_id': ALL, 'id': MATCH}, 'figure')
+            output=Output({'func': 'design_ha_figs_', 'obj': 'fig', 'fig_id': ALL, 'id': MATCH}, 'figure'),
+            inputs=Input({'func': 'design_ha_figs_', 'obj': 'legend', 'id': MATCH}, 'value'),
+            state=State({'func': 'design_ha_figs_', 'obj': 'fig', 'fig_id': ALL, 'id': MATCH}, 'figure')
         )
         def update_visibility(value, fig):
             # Determine which input was triggered
