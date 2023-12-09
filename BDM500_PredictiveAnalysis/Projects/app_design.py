@@ -57,6 +57,7 @@ FIG_LAYOUT = dict(
 )
 # horizontal dash line
 DASH_LINE = html.Hr(style={'borderTop': '2px dashed #fff', 'margin': '75px 0'})
+S_DASH_LINE = html.Hr(style={'borderTop': '1px dashed #fff', 'margin': '25px 10px'})
 # color
 COLORS = [
     'rgba(99, 110, 250, 0.70)',
@@ -92,7 +93,7 @@ class Design:
         # assign original data frame
         self.origin = df
         # initialize id
-        self.horizon_plot_id = 0
+        self.horizon_cards_id = 0
 
         # Data Process
         #  for preprocessing
@@ -129,7 +130,7 @@ class Design:
         self.df4 = self.df3.copy()
         self.df4['UNEMP'] = np.log(self.df3['UNEMP'])
 
-
+    # Contents
     def header(self):
         """
         Create the header of the app
@@ -164,60 +165,51 @@ class Design:
         Show Project overview, Research questions (objectives), and Expected Concerns
         """
         # main title
-        main_titles_lst = [
-            'Project Overview',
-            'Objectives / Questions',
-            'Expected Concerns'
-        ]
-        # titles
-        titles_lst = [
-            ['Main Theme', 'Intended Audiences', 'Applications'],
-            ['Various Aspects', 'Facter Analysis', 'Model Performance'],
-            ['Distribution of Data', 'Lag of Data Release', 'Market Volatility', 'Complex Relationship']
-        ]
-        # contents
-        contents_lst = [
-            [
+        main_t = ['Project Overview', 'Objectives / Questions', 'Expected Concerns']
+        # sub titles
+        t1 = ['Main Theme', 'Intended Audiences', 'Applications']
+        t2 = ['Various Aspects', 'Facter Analysis', 'Model Performance']
+        t3 = ['Distribution of Data', 'Lag of Data Release', 'Market Volatility', 'Complex Relationship']
+        # comments
+        c1 = [
                 'Building incrementally-learning predictive models for the S&P500 index using macroeconomic indicators.',
                 'Stakeholders in finance, economics, and stock market, particularly in mutual funds, investment banks, and pension funds​.',
                 'Guiding investment decisions, Informing risk management strategies, Analysis for traders and institutional investors',
-            ],
-            [
+        ]
+        c2 = [
                 'How will the future performance of the S&P 500 index be changed by different conditions; moving averages, scopes, future predictions, and different models?',
                 'Which economic indicators are likely to significantly affect the future performance of the S&P500 index, and how those impacts have been changed over time?',
                 'How accurately can each model predict the performance of the S&P500 index from one to six months ahead based on the latest economic indicator?'
-            ],
-            [
-                html.Ol([
-                    html.Li("Economic indicators often do not follow a normal distribution."),
-                    html.Li("For example, the unemployment rate tends to be right-skewed, even after transformations"),
-                ]),
-                html.Ol([
-                    html.Li("Economic data is reported with a time lag of about 1 month"),
-                    html.Li("Real-time data, like S&P500, differs from economic data, causing timing challenges."),
-                ]),
-                html.Ol([
-                    html.Li("Human emotions impact market decisions, leading to unpredictable market behaviors."),
-                    html.Li("Market volatility and randomness pose challenges in explaining market actions."),
-                ]),
-                html.Ol([
-                    html.Li("The market is influenced by complex economic dependencies, disruptions, and geopolitical tensions"),
-                    html.Li("These factors hinder the development of accurate predictive models"),
-                ]),
-            ]
-
-            ]
+        ]
+        c3 = [
+                """
+                    Economic indicators often do not follow a normal distribution.
+                    For example, the unemployment rate tends to be right-skewed, even after transformations
+                """,
+                """
+                    Economic data is reported with a time lag of about 1 month.
+                    Real-time data, like S&P500, differs from economic data, causing timing challenges.
+                """,
+                """
+                    Human emotions impact market decisions, leading to unpredictable market behaviors.
+                    Market volatility and randomness pose challenges in explaining market actions.
+                """,
+                """
+                    The market is influenced by complex economic dependencies, disruptions, and geopolitical tensions.
+                    These factors hinder the development of accurate predictive models.
+                """,
+        ]
+        # types of comments
+        types_ = ['P', 'P', 'Ul']
 
         # all cards
         cards = [
             html.Div([
                 html.H3(main, style={'textAlign': 'center', 'margin': '30px auto'}),
-                self.design_cards(titles, contents),
-                #html.Div([    
-                #], style={'display': 'flex', 'flexWrap': 'wrap', 'justify_content': 'center'}),
+                self.design_cards(sub, c, type_),
                 DASH_LINE,
             ])
-        for main, titles, contents in zip(main_titles_lst, titles_lst, contents_lst)
+        for main, sub, c, type_ in zip(main_t, [t1, t2, t3], [c1, c2, c3], types_)
         ]
         
         return dbc.Container(cards)
@@ -289,11 +281,11 @@ class Design:
         )
         # graph observations 
         comments_1 = """
-        Figure shows the number of data on each year after removing all missing data.
-        The first several years of data are still incompleted; missing data in some months.
-        In this project, the consistency of the time series data is critical because moving averages are applied to target variables.
-        In the incremental learning phases, the previous month of data will affect the next parameter setup.
-        Hence, those incompleted data will be removed to maintain the time series consistency.
+            Figure shows the number of data on each year after removing all missing data.
+            The first several years of data are still incompleted; missing data in some months.
+            In this project, the consistency of the time series data is critical because moving averages are applied to target variables.
+            In the incremental learning phases, the previous month of data will affect the next parameter setup.
+            Hence, those incompleted data will be removed to maintain the time series consistency.
         """ 
         elements += [
             dbc.Row([
@@ -401,10 +393,10 @@ class Design:
         ##### (2) Skewness
         # observations
         comments_2 ="""
-        IPM shows a strong left skewness, although the overall shape of the distribution is close to the normal distribution.
-        On the other hand, UMEMP shows a strong right skewness; the distribution shape is substantially different from a normal distribution.
-        To handle imbalanced data, the log scale is applied to UNEMP data; The right graph shows the histogram of log scaled UNEMP data; the distribution shape is not close to the normal distribution, and but the skewness was mitigated.
-        Since two economic data, UNEMP and LRIR, are not applied by the YoY growth changes (the original math unit is already a percentage), the shape of those distributions might not be close to normal distribution. This is one of the expected concerns and challenges that was mentioned in the introduction part.
+            IPM shows a strong left skewness, although the overall shape of the distribution is close to the normal distribution.
+            On the other hand, UMEMP shows a strong right skewness; the distribution shape is substantially different from a normal distribution.
+            To handle imbalanced data, the log scale is applied to UNEMP data; The right graph shows the histogram of log scaled UNEMP data; the distribution shape is not close to the normal distribution, and but the skewness was mitigated.
+            Since two economic data, UNEMP and LRIR, are not applied by the YoY growth changes (the original math unit is already a percentage), the shape of those distributions might not be close to normal distribution. This is one of the expected concerns and challenges that was mentioned in the introduction part.
         """
         # fig style
         fig2_styles = dict(
@@ -435,7 +427,7 @@ class Design:
         elements += [
             dbc.Row([
                 html.H4("Histogram / Skewness", style={'color': '#d9d9d9', 'margin': '20px 0'}),
-                self.horizon_plot(figs2)
+                self.horizon_cards(figs2)
             ]),
             dbc.Row([
                 dbc.Col([
@@ -449,19 +441,19 @@ class Design:
         ]
 
 
-        # (3) Scatter plots
-        #observations
+        ##### (3) Scatter plots
+        # observations
         comments_3_1 = """
-        There is a positive linear relationship (despite wider bands) between the SP500 index and three economic indicators (CSENT, IPM, and HOUSE).
-        CSENT are positively correlated with other features, which means that the consumer sentiment data could be important factor of other economic data.
-        A possible negative correlation could be found between IPM and UNEMP; the more people are working, the higher productions are.
+            There is a positive linear relationship (despite wider bands) between the SP500 index and three economic indicators (CSENT, IPM, and HOUSE).
+            CSENT are positively correlated with other features, which means that the consumer sentiment data could be important factor of other economic data.
+            A possible negative correlation could be found between IPM and UNEMP; the more people are working, the higher productions are.
         """
         comments_3_2 = """
-        Several indicators show interesting insights into SP500. Also, those observations could be helpful to implement the robust tree algorithm.
-        When IPM or CSENT  declined by over 10% or 20% from a year before, respectively, SP500 is likely to be below the level of the previous year.
-        When HOUSE is above 25% regardless of what kinds of economic indicators as the other axis, SP500 is likely to rise from the previous year.
-        When the IPM and HOUSE decline simultaneously, SP500 will be affected negative impact. 
-        Hence, three economic indicators, CSENT, IMP, and HOUSE, may have a significant impact on whether the SP500 rises or falls on YoY growth base.
+            Several indicators show interesting insights into SP500. Also, those observations could be helpful to implement the robust tree algorithm.
+            When IPM or CSENT  declined by over 10% or 20% from a year before, respectively, SP500 is likely to be below the level of the previous year.
+            When HOUSE is above 25% regardless of what kinds of economic indicators as the other axis, SP500 is likely to rise from the previous year.
+            When the IPM and HOUSE decline simultaneously, SP500 will be affected negative impact. 
+            Hence, three economic indicators, CSENT, IMP, and HOUSE, may have a significant impact on whether the SP500 rises or falls on YoY growth base.
         """
         # figure style
         fig3_styles = dict(
@@ -494,11 +486,11 @@ class Design:
         # define tabs
         tab_elements_2 = [
             [
-                self.horizon_plot(figs3_1),
+                self.horizon_cards(figs3_1),
                 self.design_observe(comments_3_1, type_='Ul', title='Feature Relationships')
             ],
             [
-                self.horizon_plot(figs3_2, legends=True),
+                self.horizon_cards(figs3_2, legends=True),
                 self.design_observe(comments_3_2, type_='Ul', title='Feature Relationships')
             ]
         ]
@@ -549,7 +541,7 @@ class Design:
         elements += [
             dbc.Row([
                 html.H4("Trends of Economic data", style={'color': '#d9d9d9', 'margin': '20px 0'}),
-                self.horizon_plot(figs4, comments=comments_4),
+                self.horizon_cards(figs4, comments=comments_4),
             ]),
             DASH_LINE
         ]
@@ -558,9 +550,9 @@ class Design:
         ##### (5): Strafitied Histogram
         # comments
         comments_5 = """
-        CSENT is higher than 10%, SP500 is likely to increase compared to the previous year; otherwise, the probability of falling rises.
-        When IPM plunged from the previous year (e.g., 5% or more decline), SP500 is also likely to fall compared to the previous year.
-        YoY growth of HOUSE is less than 20%, SP500 is likely to decline compared to the previous year; otherwise, SP500 rose in almost all cases.
+            CSENT is higher than 10%, SP500 is likely to increase compared to the previous year; otherwise, the probability of falling rises.
+            When IPM plunged from the previous year (e.g., 5% or more decline), SP500 is also likely to fall compared to the previous year.
+            YoY growth of HOUSE is less than 20%, SP500 is likely to decline compared to the previous year; otherwise, SP500 rose in almost all cases.
         """
         # fig style
         fig5_styles = dict(
@@ -586,16 +578,104 @@ class Design:
         # add element
         elements += [
             html.H4("Stratified Histogram", style={'color': '#d9d9d9', 'margin': '20px 0'}),
-            self.horizon_plot(figs5, legends=True),
-            self.design_observe(comments_5, type_='Ul')
+            self.horizon_cards(figs5, legends=True),
+            self.design_observe(comments_5, type_='Ul'),
+            DASH_LINE
         ]
-
 
         return dbc.Container(elements)
 
+    def model_descript(self):
+        # core theories
+        #  titles
+        ct_r1_title = ['Incremental Learning', 'Scopes (SC)', 'Future Prediction (FP)']
+        ct_r2_title = ['Moving Averages (MA)', 'Rolling Standardization']
+        #  descriptions
+        ct_r1_descript = [
+            """
+                The first 10 years of data are trained for defining the initial set of parameters.
+                Model parameters are updated by the gradient descent approach of learning the rest of the data one by one.
+                This incremental learning ensures enough opportunities to evaluate the predictive performance at each time.
+            """,
+            """
+                Core idea of "Scope (SC)" is how much recent data will be used to adaptively update parameters.
+                If SC is 9 (months), new parameters are adjusted so that the predicted errors from nine months of recent data are minimized.
+                The longer SC is set, the more generalized the model could be, but the more likely the model could miss the latest market moves.
+            """,
+            """
+                Future Prediction (FP) implies how much months the model will predict SP500 growth based on the latest data.
+                If FP is 6 (months), the model attempts to predict the growth of SP500 after six months.
+                The longer FP is set, the lower the predictive performance the model could have.
+            """,
+        ]
+        ct_r2_descript = [
+            """
+                Three types of moving averages (from one to three months) are applied to the target variable "SP500".
+                One moving average indicates normal value; nothing smoothing technique is applied.
+                From those three numerical variables, create three categorical data; "1" for positive and "0" for negative variables. 
+            """,
+            """
+                All economic indicators (independent variables) are appiled rolling standardization.
+                First 10-year of data are normally standardized by the mean and standard deviation(std).
+                The rest of data are standardized by the mean and std of the most recent 10-year of historical data.
+            """
 
-    # degisn shortcut
-    def design_observe(self, comments: str, type_: str = '', title: str = 'Graph Interpretation'):
+        ]
+
+        # models
+        #  titles
+        m_titles = [
+            'Linear Regression / Logistic Regression', 
+            'Classification and Regression Tree (CART)'
+            ] 
+        #  descriptions
+        m_descripts = [
+            """
+                Applying all five economic indicators
+                Employing incremental learning approach (Online Learning)
+                Testing backward elimination
+                Evaluating by four regression / five classification metrics
+            """,
+            """
+                Applying all five economic indicators
+                Learning all observations at each incremental step (Offline Learning)
+                Evaluating by four regression metrics
+            """
+            ]
+        
+        # define elements
+        elements =[
+            html.H3('Model Description', style={'textAlign': 'center', 'margin': '30px auto'}),
+            dbc.Row([
+                self.design_cards(ct_r1_title, ct_r1_descript, "Ul"),
+                S_DASH_LINE,
+                self.design_cards(ct_r2_title, ct_r2_descript, "Ul"),
+                S_DASH_LINE,
+                self.design_cards(m_titles, m_descripts, "Ul"),
+            ]),
+            DASH_LINE
+        ]
+
+        return dbc.Container(elements)
+    
+    def model_kpis(self):
+        pass
+
+
+    def model_result(self):
+        pass
+
+    def model_finalize(self):
+        pass
+    
+    def conclution(self):
+        pass
+
+    def further_approach(self):
+        pass
+
+    # Degisn Shortcut
+    def design_observe(self, comments: str, type_: str = 'P', title: str = 'Graph Interpretation'):
         if type_ == 'Ul':
             lines = comments.strip().split('\n')
             obs_comp = html.Ul([html.Li(c, style={'margin': '5px 0'}) for c in lines], style={'color': '#d9d9d9'})
@@ -619,27 +699,47 @@ class Design:
 
         return div
 
-    def design_cards(self, title: list, content: list, mode: str = 'ha'):
+    def design_cards(self, titles: list, contents: list, type_: str = 'P', mode: str = 'ha'):
+        # direction
         f_direct = 'row' if mode == 'ha' else 'column'
-        cards = html.Div([
+        # content style
+        content_style={'lineHeight': 2, 'color': 'F4F4F4'}
+        # define all possble functions
+        def list_bullet(text: str):
+            lines = text.strip().split('\n')
+            return html.Ul([html.Li(c, style={'margin': '5px 0'}) for c in lines], style=content_style)
+        
+        def list_number(text: str):
+            lines = text.strip().split('\n')
+            return html.Ul([html.Li(c, style={'margin': '5px 0'}) for c in lines], style=content_style)
+
+        def paragraph(text: str):
+            return html.P(text, style=content_style)
+        
+        #  dictionary of function
+        content_funcs = {'Ul': list_bullet, 'Ol': list_number, 'P': paragraph}
+        func = content_funcs.get(type_, 'P')
+
+        # define elements
+        elements = html.Div([
             dbc.Row([
                 dbc.Col(
                     dbc.Card(
                         [
-                            dbc.CardHeader(html.H5(title[i], className='card-title', style={'color': 'F9F9F9'})),
+                            dbc.CardHeader(html.H5(title, className='card-title', style={'color': 'F9F9F9', 'margin': '5px 0'})),
                             dbc.CardBody(
-                                [html.P(content[i], style={'lineHeight': 2, 'color': 'F4F4F4'})], 
+                                [func(content)], 
                                 style={'height': '100%', 'fontSize': 16})
                         ], 
                         style={'height': '100%', 'margin': 'auto', 'marginBottom': '15px'}
                     ), 
                     style={'margin': '10px'}
                 )
-                for i in range(len(title)) 
+                for title, content in zip(titles, contents) 
             ], style={'flexDirection': f_direct, 'justifyContent': 'space-around', 'width': '100%'})
         ], style={'display': 'flex', 'flexWrap': 'wrap', 'alignItems': 'center'})
 
-        return cards
+        return elements
     
     def design_tabs(self, titles: list, elements: list, **styles):    
         tabs = html.Div([
@@ -656,9 +756,9 @@ class Design:
 
         return tabs
 
-    def horizon_plot(self, figs: list, legends: bool = False, comments: list = []):
+    def horizon_cards(self, figs: list, legends: bool = False, comments: list = []):
         # set id number
-        self.horizon_plot_id += 1
+        self.horizon_cards_id += 1
         # define return
         elements = []
         # define comments
@@ -680,7 +780,7 @@ class Design:
 
             elements += [
                 dmc.ChipGroup(
-                    id={'func': func_id, 'obj': 'legend', 'id': self.horizon_plot_id},
+                    id={'func': func_id, 'obj': 'legend', 'id': self.horizon_cards_id},
                     children=[
                         dmc.Chip(
                             children=str(opt),
@@ -705,7 +805,7 @@ class Design:
                         [
                             dbc.CardBody([
                                 dcc.Graph(
-                                    id={'func': func_id, 'obj': 'fig', 'fig_id': str(i), 'id': self.horizon_plot_id},
+                                    id={'func': func_id, 'obj': 'fig', 'fig_id': str(i), 'id': self.horizon_cards_id},
                                     figure=fig,
                                 ),
                                 dbc.CardFooter(

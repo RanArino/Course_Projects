@@ -21,11 +21,12 @@ design = Design(app, origin_df)
 design.callbacks()
 
 app.layout = dbc.Container([
-    #design.header(),
+    design.header(),
     #design.overview(),
     #design.dataset(),
     #design.data_preprocessing(),
-    design.data_observation(),
+    #design.data_observation(),
+    design.model_descript(),
 ], fluid=True)
 
 if __name__ == "__main__":
