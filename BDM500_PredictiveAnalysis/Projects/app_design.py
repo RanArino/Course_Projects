@@ -9,6 +9,8 @@ import pandas as pd
 from scipy.stats import skew
 from itertools import combinations
 
+from Functions import PredictiveAnalysis
+
 # dash table design
 TABLE_STYLE = dict(
     style_cell={
@@ -97,7 +99,7 @@ class Design:
 
         # Data Process
         #  for preprocessing
-        self.df1 = self.origin.dropna()
+        """self.df1 = self.origin.dropna()
         self.group_year = self.df1.groupby('Year').count().reset_index()
         self.df2 = self.df1.copy()
         self.df2 = self.df2[self.df2['Year'] >= 1978].reset_index(drop=True)
@@ -129,6 +131,10 @@ class Design:
         # change to log(UNEMP)
         self.df4 = self.df3.copy()
         self.df4['UNEMP'] = np.log(self.df3['UNEMP'])
+
+        # assign PredictiveAnalysis class
+        self.PA = PredictiveAnalysis(self.df4)
+        self.new_df = self.PA.create_data(['CSENT', 'IPM', 'HOUSE', 'UNEMP', 'LRIR'], 'SP500', ma=[1,2,3], fp=[1,2,3,4,5,6], init_train=120, poly_d=1)"""
 
     # Contents
     def header(self):
@@ -206,7 +212,7 @@ class Design:
         cards = [
             html.Div([
                 html.H3(main, style={'textAlign': 'center', 'margin': '30px auto'}),
-                self.design_cards(sub, c, type_),
+                self.design_cards_equal(sub, c, type_),
                 DASH_LINE,
             ])
         for main, sub, c, type_ in zip(main_t, [t1, t2, t3], [c1, c2, c3], types_)
@@ -331,7 +337,7 @@ class Design:
             dbc.Row([
                 html.H4("(2): Modifying the Data / Creating Categorical Labels", style={'margin': '0 0 30px'}),
                 dbc.Row([
-                    self.design_cards(titles, contents),
+                    self.design_cards_equal(titles, contents),
                     html.H5("Data Preview (After Modification)", style={'color': '#d9d9d9', 'margin': '15px'}),
                     dash_table.DataTable(
                         data=self.df3.head().round(2).to_dict('records'),
@@ -673,11 +679,167 @@ class Design:
                 self.design_ha_cards(ct_titles, ct_descripts, "Ul", 500),
                 S_DASH_LINE,
                 html.H4("Descriptions of Three Models", style={'color': '#d9d9d9', 'margin': '20px 0'}),
-                self.design_acccordion(m1_titles, m1_descripts, "Ul"),
+                self.design_cards_acccordion(m1_titles, m1_descripts, "Ul"),
                 S_DASH_LINE,
                 html.H4("Model KPIs / Metrics", style={'color': '#d9d9d9', 'margin': '20px 0'}),
-                self.design_acccordion(m2_titles, m2_descript, type_='Ul')
+                self.design_cards_acccordion(m2_titles, m2_descript, type_='Ul')
             ]),
+            DASH_LINE
+        ]
+
+        return dbc.Container(elements)
+
+    def model_dataset(self):
+        elements = [
+            html.H3('Model Dataset Creation', style={'textAlign': 'center', 'margin': '30px auto'}),
+            dbc.Accordion([
+                dbc.AccordionItem(
+                    title='Modifying the Dataset',
+                    children=[
+                    # Card 1
+                    self.design_cards_size(
+                        contents=[
+                            # Independent Variables Multi Dropdown
+                            dbc.Row([
+                                html.Label('Select Independent Variables:', style={'color': '#d9d9d9', 'paddingBottom': '10px'}),
+                                dcc.Dropdown(
+                                    id='independent-variable-dropdown',
+                                    options=[
+                                        {'label': 'Consumer Sentiment (CSENT)', 'value': 'CSENT'},
+                                        {'label': 'Industrial Production (IPM)', 'value': 'IPM'},
+                                        {'label': 'New One Family Houses Sold (HOUSE)', 'value': 'HOUSE'},
+                                        {'label': 'Unemployment Rate (UNEMP)', 'value': 'UNEMP'},
+                                        {'label': 'Long-term Real Interest Rate (LRIR)', 'value': 'LRIR'}
+                                    ],
+                                    value=['CSENT', 'IPM', 'HOUSE', 'UNEMP', 'LRIR'],  # Default values
+                                    placeholder="Select Independent Variables",
+                                    multi=True,
+                                    style={ 'color': 'gray'}
+                                ),
+                            ]),
+                            # Target & Moving Averages
+                            dbc.Row([
+                                # Target Variable Dropdown
+                                html.Div([
+                                    html.Label('Select Target Variable:', style={'color': '#d9d9d9', 'paddingBottom': '10px'}),
+                                    dcc.Dropdown(
+                                        id='target-variable-dropdown',
+                                        options=[
+                                            {'label': 'S&P 500 Index', 'value': 'SP500'},
+                                            {'label': 'Consumer Sentiment (CSENT)', 'value': 'CSENT'},
+                                            {'label': 'Industrial Production in Manufacturing (IPM)', 'value': 'IPM'},
+                                            {'label': 'New One Family Houses Sold (HOUSE)', 'value': 'HOUSE'},
+                                            {'label': 'Unemployment Rate (UNEMP)', 'value': 'UNEMP'},
+                                            {'label': 'Long-term Real Interest Rate (LRIR)', 'value': 'LRIR'}
+                                        ],
+                                        placeholder="Select a Target Variable",
+                                        value='SP500',  # Default value
+                                        style={'width': 'fit_content',  'color': 'gray'}
+                                    ),
+                                ]),
+                                # Moving Averages Multi Dropdown
+                                html.Div([
+                                    html.Label('Select Moving Averages:', style={'color': '#d9d9d9', 'paddingBottom': '10px'}),
+                                    dcc.Dropdown(
+                                        id='moving-averages-dropdown',
+                                        options=[{'label': f'{i} Month(s)', 'value': i} for i in range(1, 7)],
+                                        value=[1, 2, 3],  # Default values
+                                        placeholder="Select Moving Averages",
+                                        multi=True,
+                                        className='dropdown',
+                                        style={ 'color': 'gray'}
+                                    ),
+                                ]),
+                            ],
+                            style={'justify': 'center', 'display': 'inline-flex'}
+                            )
+                        ]
+                    ),
+                    # Card 2
+                    self.design_cards_size(
+                        contents = [
+                            # Future Prediction Multi Dropdown
+                            dbc.Row([    
+                                html.Label('Select Future Prediction Months:', style={'color': '#d9d9d9', 'paddingBottom': '10px'}),
+                                dcc.Dropdown(
+                                    id='future-prediction-dropdown',
+                                    options=[{'label': f'{i} Month(s)', 'value': i} for i in range(1, 7)],
+                                    value=list(range(1, 7)),  # Default values
+                                    placeholder="Select Future Prediction Months",
+                                    multi=True,
+                                    className='dropdown',
+                                    style={ 'color': 'gray'}
+                                ),
+                            ]),
+                            # Initial Data Size & Poly Degree
+                            dbc.Row([    
+                                # Initial Training Data Size Input
+                                html.Div([
+                                    html.Label('Select Initial Training Data:', style={'color': '#d9d9d9', 'paddingBottom': '10px', 'width': '100%'}),
+                                    dcc.Input(
+                                        id='initial-training-data-size',
+                                        type='number',
+                                        value=120,
+                                        placeholder='Enter initial training data size',
+                                        style={'width': 'fit_content',  'marginLeft': '10px'},
+                                    ),
+                                ]),
+                                # Degree of Polynomial
+                                html.Div([
+                                    html.Label('Select Polynomial Degree:', style={'color': '#d9d9d9', 'paddingBottom': '10px', 'width': '100%'}),
+                                    dcc.Input(
+                                        id='poly-degree',
+                                        type='number',
+                                        value=1,
+                                        min=1,
+                                        max=3,
+                                        placeholder='Enter Degree of Polynomials',
+                                        style={'width': 'fit_content', 'marginLeft': '10px'}
+                                    ),
+                                ]),
+                            ],
+                            style={'justify': 'center'}
+                            ),
+                        ]
+                    ),
+                    # Confirmation 
+                    dcc.ConfirmDialog(
+                        id={'obj': 'confirmation', 'action': 'model-dataset'},
+                        message='Are you sure you want to finalize the model dataset?',
+                    ),
+                    # Finalize Button
+                    html.Button('Finalize the Model Dataset', 
+                            id={'obj': 'finalize-button', 'action': 'model-dataset'}, 
+                            n_clicks=0, 
+                            style={
+                                    'backgroundColor': '#217CA3',
+                                    'color': 'white',
+                                    'border': 'none',
+                                    'padding': '10px 20px',
+                                    'margin': '10px',
+                                    'borderRadius': '5px',
+                                    'cursor': 'pointer',
+                                    'fontSize': '16px',
+                                    'width': '100%',
+                                }
+                    ),    
+                ])
+            ],
+            start_collapsed=True,
+            ),
+
+            # Placeholder for Output
+            dbc.Row(
+                children=[
+                    html.H5("Data Preview", style={'color': '#d9d9d9', 'margin': '20px'}),
+                    dash_table.DataTable(
+                        id={'obj': 'output-table', 'action': 'model-dataset'},
+                        data=self.new_df.head().round(2).to_dict('records'),
+                        columns=[{'name': i, 'id': i} for i in self.new_df.columns],
+                        **TABLE_STYLE,
+                    ),
+                ]
+            ),
             DASH_LINE
         ]
 
@@ -687,12 +849,35 @@ class Design:
         elements = [
             html.H3('Model Results / Performances', style={'textAlign': 'center', 'margin': '30px auto'})
         ]
+        # titles
+        titles = ['Linear Regression', 'Logistic Regression', 'Classification and Regression Tree (CART)']
+        
+        # linear regression
+        linear_elements = [
+            html.Div('Hello'),
+            html.Div('Hello')
+        ]
+
+        # logistic regression
+        logit_elements = [
+            html.Div('Hello'),
+            html.Div('Hello')
+        ]
+
+        # CART
+        cart_elements = [
+            html.Div('Hello'),
+            html.Div('Hello')
+        ]
+
+        elements += [
+            self.design_tabs(titles, [linear_elements, logit_elements, cart_elements]),
+            DASH_LINE
+        ]
+
+        return dbc.Container(elements)
 
 
-
-        elements += [DASH_LINE]
-
-        return elements
 
     def model_finalize(self):
         pass
@@ -749,7 +934,75 @@ class Design:
 
         return elements
 
-    def design_acccordion(self, titles: list, contents: list, type_: str = 'P', mode: str = 'ha'):
+    def design_accordion(self, titles: list, contents: list):
+        elements = dmc.AccordionMultiple([
+            dmc.AccordionItem([
+                dmc.AccordionControl(title, style={'backgroundColor': '#444', 'color': '#F9F9F9', 'margin': '5px 0'}),
+                dmc.AccordionPanel(children=content, style={'backgroundColor': '#333'}),
+            ],
+            value=title,
+            )
+            for title, content in zip(titles, contents)
+        ],
+        variant='filled',
+        )
+        
+        return elements
+
+    def design_cards_size(self, titles: list = [], texts: list = [], type_: str = 'P', contents: list = [], card_width: list = [6,6]):
+        """
+        A single card; two sections for two contents
+        """
+        col_sizes = len(titles) or len(texts) or len(contents)
+
+        element = dbc.Card(
+            dbc.CardBody([
+                dbc.Row([
+                    dbc.Col([
+                        # titles and texts
+                        html.Div([
+                            html.H5(titles[i], className="card-title", style={'padding': '0 0 10px'}),
+                            self.design_texts(texts[i], type_)
+                        ]) if titles and texts else None,
+                        # returrn each content
+                        contents[i] if contents else None
+                        ],
+                        style={"padding": "20px", 
+                               "borderRight": "2px dashed #777777" if i != col_sizes-1 else 'None'},
+                        width=card_width[i]
+                    )
+                    for i in range(col_sizes)
+                ]),
+            ]),
+        )
+
+        return element
+
+    def design_cards_equal(self, titles: list, contents: list, type_: str = 'P', mode: str = 'ha'):
+        # direction
+        f_direct = 'row' if mode == 'ha' else 'column'
+        # define elements
+        elements = html.Div([
+            dbc.Row([
+                dbc.Col(
+                    dbc.Card(
+                        [
+                            dbc.CardHeader(html.H5(title, className='card-title', style={'color': 'F9F9F9', 'margin': '5px 0'})),
+                            dbc.CardBody(
+                                [self.design_texts(content, type_)], 
+                                style={'height': '100%', 'fontSize': 16})
+                        ], 
+                        style={'height': '100%', 'margin': 'auto', 'marginBottom': '15px'}
+                    ), 
+                    style={'margin': '10px'}
+                )
+                for title, content in zip(titles, contents) 
+            ], style={'flexDirection': f_direct, 'justifyContent': 'space-around', 'width': '100%'})
+        ], style={'display': 'flex', 'flexWrap': 'wrap', 'alignItems': 'center'})
+
+        return elements
+
+    def design_cards_acccordion(self, titles: list, contents: list, type_: str = 'P', mode: str = 'ha'):
         # direction
         f_direct = 'row' if mode == 'ha' else 'column'
         # define elements
@@ -781,60 +1034,6 @@ class Design:
         ], style={'display': 'flex', 'flexWrap': 'wrap', 'alignItems': 'center'})
 
         return elements 
-
-    def design_card_half(self, titles: list, texts: list, type_: str):
-        """
-        A single card; two sections for two contents
-        """
-        element = dbc.Card(
-            dbc.CardBody([
-                dbc.Row([
-                    dbc.Col(
-                        html.Div([
-                            html.H5(titles[0], className="card-title", style={'padding': '0 0 10px'}),
-                            self.design_texts(texts[0], type_)
-                        ]),
-                        #className="border-end",
-                        style={"padding": "20px", "borderRight": "2px dashed #777777"},
-                        width=6
-                    ),
-                    dbc.Col(
-                        html.Div([
-                            html.H5(titles[1], className="card-title", style={'padding': '0 0 10px'}),
-                            self.design_texts(texts[1], type_)
-                        ]),
-                        style={"padding": "20px"},
-                        width=6
-                    )
-                ]),
-            ]),
-        )
-
-        return element
-
-    def design_cards(self, titles: list, contents: list, type_: str = 'P', mode: str = 'ha'):
-        # direction
-        f_direct = 'row' if mode == 'ha' else 'column'
-        # define elements
-        elements = html.Div([
-            dbc.Row([
-                dbc.Col(
-                    dbc.Card(
-                        [
-                            dbc.CardHeader(html.H5(title, className='card-title', style={'color': 'F9F9F9', 'margin': '5px 0'})),
-                            dbc.CardBody(
-                                [self.design_texts(content, type_)], 
-                                style={'height': '100%', 'fontSize': 16})
-                        ], 
-                        style={'height': '100%', 'margin': 'auto', 'marginBottom': '15px'}
-                    ), 
-                    style={'margin': '10px'}
-                )
-                for title, content in zip(titles, contents) 
-            ], style={'flexDirection': f_direct, 'justifyContent': 'space-around', 'width': '100%'})
-        ], style={'display': 'flex', 'flexWrap': 'wrap', 'alignItems': 'center'})
-
-        return elements
 
     def design_ha_cards(self, titles: list, contents: list, type_: str = 'P', width: int = 400):
         elements = [
@@ -939,7 +1138,8 @@ class Design:
         @self.app.callback(
             output=Output({'func': 'design_ha_figs_', 'obj': 'fig', 'fig_id': ALL, 'id': MATCH}, 'figure'),
             inputs=Input({'func': 'design_ha_figs_', 'obj': 'legend', 'id': MATCH}, 'value'),
-            state=State({'func': 'design_ha_figs_', 'obj': 'fig', 'fig_id': ALL, 'id': MATCH}, 'figure')
+            state=State({'func': 'design_ha_figs_', 'obj': 'fig', 'fig_id': ALL, 'id': MATCH}, 'figure'),
+            prevent_initial_call=True
         )
         def update_visibility(value, fig):
             # Determine which input was triggered
@@ -962,4 +1162,44 @@ class Design:
             
             else:
                 return no_update
+
+        # confirmation to a certain action
+        @self.app.callback(
+            Output({'obj': 'confirmation', 'action': MATCH}, 'displayed'),
+            [Input({'obj': 'finalize-button', 'action': MATCH}, 'n_clicks')],
+            prevent_initial_call=True,
+        )
+        def display_confirm_dialog(n_clicks):
+            if n_clicks > 0:
+                return True
+            return False
+
+        # finalizing model dataset creation
+        @self.app.callback(
+            [Output({'obj':'output-table', 'action': MATCH}, 'data'),
+             Output({'obj':'output-table', 'action': MATCH}, 'columns')],
+            [Input({'obj':'confirmation', 'action': MATCH}, 'submit_n_clicks')],
+            [State('independent-variable-dropdown', 'value'),
+            State('target-variable-dropdown', 'value'),
+            State('moving-averages-dropdown', 'value'),
+            State('future-prediction-dropdown', 'value'),
+            State('initial-training-data-size', 'value'),
+            State('poly-degree', 'value')],
+            prevent_initial_call=True
+        )
+        def model_data_creation(submit_n_clicks, independent_vars, target_var, ma, fp, init_data, poly_degree):
+            if submit_n_clicks:
+                if not all([independent_vars, target_var, ma, fp, init_data, poly_degree]):
+                    return html.Div('Please make sure all inputs are selected!', style={'color': 'red'})
+
+                # update self.PA
+                self.new_df = self.PA.create_data(
+                    X_n=independent_vars, y_n=target_var,
+                    ma=ma, fp=fp, init_train=init_data, poly_d=poly_degree
+                )
+                data = self.new_df.head().round(2).to_dict('records')
+                cols = [{'name': i, 'id': i} for i in self.new_df.columns]
+                
+                return data, cols
+            
 
