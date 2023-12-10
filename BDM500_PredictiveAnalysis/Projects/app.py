@@ -25,15 +25,15 @@ app.layout = dbc.Container([
     #design.data_preprocessing(),
     #design.data_observation(),
     #design.model_descript(),
-    #design.model_dataset(),
-    #design.model_result(),
+    design.model_dataset(),
+    design.model_result(),
     design.model_finalize(),
-    design.conclution(),
-    design.further_approach(),
+    #design.conclution(),
+    #design.further_approach(),
 ], fluid=True)
 
 # define all callbacks
-#design.callbacks()
+design.callbacks()
 
 
 if __name__ == "__main__":

@@ -114,6 +114,8 @@ class Design:
         self.origin = df
         # initialize id
         self.design_ha_viz_id = 0
+        # number of new models
+        self.num_new_model = 1
 
         # Data Process
         #  for preprocessing
@@ -728,133 +730,140 @@ class Design:
     def model_dataset(self):
         elements = [
             html.H3('Model Dataset Creation', style={'textAlign': 'center', 'margin': '30px auto'}),
-            dbc.Accordion([
-                dbc.AccordionItem(
-                    title='Modifying the Dataset',
-                    children=[
-                    # Card 1
-                    self.design_cards_size(
-                        contents=[
-                            # Independent Variables Multi Dropdown
-                            dbc.Row([
-                                html.Label('Select Independent Variables:', style={'color': '#d9d9d9', 'paddingBottom': '10px'}),
-                                dcc.Dropdown(
-                                    id='independent-variable-dropdown',
-                                    options=[
-                                        {'label': 'Consumer Sentiment (CSENT)', 'value': 'CSENT'},
-                                        {'label': 'Industrial Production (IPM)', 'value': 'IPM'},
-                                        {'label': 'New One Family Houses Sold (HOUSE)', 'value': 'HOUSE'},
-                                        {'label': 'Unemployment Rate (UNEMP)', 'value': 'UNEMP'},
-                                        {'label': 'Long-term Real Interest Rate (LRIR)', 'value': 'LRIR'}
-                                    ],
-                                    value=['CSENT', 'IPM', 'HOUSE', 'UNEMP', 'LRIR'],  # Default values
-                                    placeholder="Select Independent Variables",
-                                    multi=True,
-                                    style={ 'color': 'gray'}
-                                ),
-                            ]),
-                            # Target & Moving Averages
-                            dbc.Row([
-                                # Target Variable Dropdown
-                                html.Div([
-                                    html.Label('Select Target Variable:', style={'color': '#d9d9d9', 'paddingBottom': '10px'}),
-                                    dcc.Dropdown(
-                                        id='target-variable-dropdown',
-                                        options=[
-                                            {'label': 'S&P 500 Index', 'value': 'SP500'},
-                                            {'label': 'Consumer Sentiment (CSENT)', 'value': 'CSENT'},
-                                            {'label': 'Industrial Production in Manufacturing (IPM)', 'value': 'IPM'},
-                                            {'label': 'New One Family Houses Sold (HOUSE)', 'value': 'HOUSE'},
-                                            {'label': 'Unemployment Rate (UNEMP)', 'value': 'UNEMP'},
-                                            {'label': 'Long-term Real Interest Rate (LRIR)', 'value': 'LRIR'}
-                                        ],
-                                        placeholder="Select a Target Variable",
-                                        value='SP500',  # Default value
-                                        style={'width': 'fit_content',  'color': 'gray'}
-                                    ),
-                                ]),
-                                # Moving Averages Multi Dropdown
-                                html.Div([
-                                    html.Label('Select Moving Averages:', style={'color': '#d9d9d9', 'paddingBottom': '10px'}),
-                                    dcc.Dropdown(
-                                        id='moving-averages-dropdown',
-                                        options=[{'label': f'{i} Month(s)', 'value': i} for i in range(1, 7)],
-                                        value=[1, 2, 3],  # Default values
-                                        placeholder="Select Moving Averages",
-                                        multi=True,
-                                        className='dropdown',
-                                        style={ 'color': 'gray'}
-                                    ),
-                                ]),
-                            ],
-                            style={'justify': 'center', 'display': 'inline-flex'}
-                            )
-                        ]
-                    ),
-                    # Card 2
-                    self.design_cards_size(
-                        contents = [
-                            # Future Prediction Multi Dropdown
-                            dbc.Row([    
-                                html.Label('Select Future Prediction Months:', style={'color': '#d9d9d9', 'paddingBottom': '10px'}),
-                                dcc.Dropdown(
-                                    id='future-prediction-dropdown',
-                                    options=[{'label': f'{i} Month(s)', 'value': i} for i in range(1, 7)],
-                                    value=list(range(1, 7)),  # Default values
-                                    placeholder="Select Future Prediction Months",
-                                    multi=True,
-                                    className='dropdown',
-                                    style={ 'color': 'gray'}
-                                ),
-                            ]),
-                            # Initial Data Size & Poly Degree
-                            dbc.Row([    
-                                # Initial Training Data Size Input
-                                html.Div([
-                                    html.Label('Select Initial Training Data:', style={'color': '#d9d9d9', 'paddingBottom': '10px', 'width': '100%'}),
-                                    dcc.Input(
-                                        id='initial-training-data-size',
-                                        type='number',
-                                        value=120,
-                                        placeholder='Enter initial training data size',
-                                        style={'width': 'fit_content',  'marginLeft': '10px'},
-                                    ),
-                                ]),
-                                # Degree of Polynomial
-                                html.Div([
-                                    html.Label('Select Polynomial Degree:', style={'color': '#d9d9d9', 'paddingBottom': '10px', 'width': '100%'}),
-                                    dcc.Input(
-                                        id='poly-degree',
-                                        type='number',
-                                        value=1,
-                                        min=1,
-                                        max=3,
-                                        placeholder='Enter Degree of Polynomials',
-                                        style={'width': 'fit_content', 'marginLeft': '10px'}
-                                    ),
-                                ]),
-                            ],
-                            style={'justify': 'center'}
-                            ),
-                        ]
-                    ),
-                    # Confirmation 
-                    dcc.ConfirmDialog(
-                        id={'obj': 'confirmation', 'action': 'model-dataset'},
-                        message='Are you sure you want to finalize the model dataset?',
-                    ),
-                    # Finalize Button
-                    html.Button('Finalize the Model Dataset', 
-                            id={'obj': 'finalize-button', 'action': 'model-dataset'}, 
-                            n_clicks=0, 
-                            style=BUTTON_STYLE
-                    ),    
-                ])
-            ],
-            start_collapsed=True,
-            ),
+        ]
 
-            # Placeholder for Output
+        # define elements for parameter selection
+        params_select = [
+            # Card 1
+            self.design_cards_size(
+                contents=[
+                    # Independent Variables Multi Dropdown
+                    dbc.Row([
+                        html.Label('Select Independent Variables:', style={'color': '#d9d9d9', 'paddingBottom': '10px'}),
+                        dmc.MultiSelect(
+                            id='X-select',
+                            data=[
+                                {'label': 'Consumer Sentiment (CSENT)', 'value': 'CSENT'},
+                                {'label': 'Industrial Production (IPM)', 'value': 'IPM'},
+                                {'label': 'New One Family Houses Sold (HOUSE)', 'value': 'HOUSE'},
+                                {'label': 'Unemployment Rate (UNEMP)', 'value': 'UNEMP'},
+                                {'label': 'Long-term Real Interest Rate (LRIR)', 'value': 'LRIR'}
+                            ],
+                            value=['CSENT', 'IPM', 'HOUSE', 'UNEMP', 'LRIR'],  # Default values
+                            placeholder="Select Independent Variables",
+                            required=True,
+                            style={'backgroundColor': '#333', 'color': 'white', 'borderColor': '#555'}
+                        ),
+                    ]),
+                    # Target & Moving Averages
+                    dbc.Row([
+                        # Target Variable Dropdown
+                        html.Div([
+                            html.Label('Select Target Variable:', style={'color': '#d9d9d9', 'paddingBottom': '10px'}),
+                            dmc.Select(
+                                id='y-select',
+                                data=[
+                                    {'label': 'S&P 500 Index', 'value': 'SP500'},
+                                    {'label': 'Consumer Sentiment (CSENT)', 'value': 'CSENT'},
+                                    {'label': 'Industrial Production in Manufacturing (IPM)', 'value': 'IPM'},
+                                    {'label': 'New One Family Houses Sold (HOUSE)', 'value': 'HOUSE'},
+                                    {'label': 'Unemployment Rate (UNEMP)', 'value': 'UNEMP'},
+                                    {'label': 'Long-term Real Interest Rate (LRIR)', 'value': 'LRIR'}
+                                ],
+                                placeholder="Select a Target Variable",
+                                value='SP500',  # Default value
+                                required=True,
+                                style={'width': 'fit_content', 'backgroundColor': '#333', 'color': 'white', 'borderColor': '#555'}
+                            ),
+                        ]),
+                        # Moving Averages Multi Dropdown
+                        html.Div([
+                            html.Label('Select Moving Averages:', style={'color': '#d9d9d9', 'paddingBottom': '10px'}),
+                            dmc.MultiSelect(
+                                id='ma-select',
+                                data=[{'label': f'{i} Month(s)', 'value': i} for i in range(1, 7)],
+                                value=[1, 2, 3],  # Default values
+                                placeholder="Select Moving Averages",
+                                required=True,
+                                style={'backgroundColor': '#333', 'color': 'white', 'borderColor': '#555'}
+                            ),
+                        ]),
+                    ],
+                    style={'justify': 'center', 'display': 'inline-flex'}
+                    )
+                ]
+            ),
+            # Card 2
+            self.design_cards_size(
+                contents = [
+                    # Future Prediction Multi Dropdown
+                    dbc.Row([    
+                        html.Label('Select Future Prediction Months:', style={'color': '#d9d9d9', 'paddingBottom': '10px'}),
+                        dmc.MultiSelect(
+                            id='fp-select',
+                            data=[{'label': f'{i} Month(s)', 'value': i} for i in range(1, 7)],
+                            value=list(range(1, 7)),  # Default values
+                            placeholder="Select Future Prediction Months",
+                            required=True,
+                            style={'backgroundColor': '#333', 'color': 'white', 'borderColor': '#555'}
+                        ),
+                    ]),
+                    # Initial Data Size & Poly Degree
+                    dbc.Row([    
+                        # Initial Training Data Size Input
+                        html.Div([
+                            html.Label('Select Initial Training Data:', style={'color': '#d9d9d9', 'paddingBottom': '10px', 'width': '100%'}),
+                            dmc.NumberInput(
+                                id='init-train-num',
+                                value=120,
+                                step=1,
+                                min=1,
+                                max=len(self.new_df),
+                                placeholder='Enter initial training data size',
+                                style={'width': 'fit_content',  'marginLeft': '10px'},
+                            ),
+                        ]),
+                        # Degree of Polynomial
+                        html.Div([
+                            html.Label('Select Polynomial Degree:', style={'color': '#d9d9d9', 'paddingBottom': '10px', 'width': '100%'}),
+                            dmc.NumberInput(
+                                id='poly-degree',
+                                value=1,
+                                step=1,
+                                min=1,
+                                max=3,
+                                placeholder='Enter Degree of Polynomials',
+                                style={'width': 'fit_content', 'marginLeft': '10px'}
+                            ),
+                        ]),
+                    ],
+                    style={'justify': 'center'}
+                    ),
+                ]
+            ),
+            # Confirmation 
+            dcc.ConfirmDialog(
+                id={'obj': 'confirmation', 'action': 'model-dataset'},
+                message='Are you sure you want to finalize the model dataset?',
+            ),
+            S_DASH_LINE,
+            # Finalize Button
+            html.Button('Finalize the Model Dataset', 
+                    id={'obj': 'finalize-button', 'action': 'model-dataset'}, 
+                    n_clicks=0, 
+                    style=BUTTON_STYLE
+            ),
+        ] 
+        # add elements
+        elements += [
+            self.design_accordion(
+                titles=['Modifying the Dataset'],
+                contents=[params_select]
+            )
+        ]
+
+        # Placeholder for Output
+        elements += [    
             dbc.Row(
                 children=[
                     html.H5("Data Preview", style={'color': '#d9d9d9', 'margin': '20px'}),
@@ -903,15 +912,59 @@ class Design:
 
         # Section of the Customize Model
         model_custom = [
-
+            # All parameters
+            html.H4("Parameters Set Up: ", style={'color': '#d9d9d9', 'margin': '20px 0'}),
+            dbc.Row([
+                dbc.Col(html.Div([
+                    html.Label('Models: '),
+                    dmc.Select(data=['Linear', 'Logistic', 'CART'], value='Linear', required=True,
+                               id={'action': 'new-model', 'obj': 'model'})
+                ]), style={'minWidth': '150px'}),
+                dbc.Col(html.Div([
+                    html.Label('Nta: '),
+                    dmc.NumberInput(min=0, max=0.1, step=0.0001, value=0.01, required=True,
+                                   id={'action': 'new-model', 'obj': 'nta'})
+                ]), style={'minWidth': '150px'}),
+                dbc.Col(html.Div([
+                    html.Label('Alpha: '),
+                    dmc.NumberInput(min=0, max=1, step=0.001, value=0.01, required=True,
+                                   id={'action': 'new-model', 'obj': 'alpha'})
+                ]), style={'minWidth': '150px'}),
+                dbc.Col(html.Div([
+                    html.Label('Lambda: '),
+                    dmc.NumberInput(min=0, max=1, step=0.1, value=0.5, required=True,
+                                   id={'action': 'new-model', 'obj': 'lambda'})
+                ]), style={'minWidth': '150px'}),
+                dbc.Col(html.Div([
+                    html.Label('Iterations: '),
+                    dmc.NumberInput(min=1, step=1, value=100, required=True,
+                                   id={'action': 'new-model', 'obj': 'iter'})
+                ]), style={'minWidth': '150px'}),
+                dbc.Col(html.Div([
+                    html.Label('Max Depth: '),
+                    dmc.NumberInput(min=1, step=1, value=5, required=True,
+                                   id={'action': 'new-model', 'obj': 'max-depth'})
+                ]), style={'minWidth': '150px'}),
+            ],
+            style={'display': 'inline-flex', 'flexWrap': 'nowrap', 'overflowX': 'auto'}
+            ),
+            html.H4("Notations: ", style={'color': '#d9d9d9', 'margin': '30px 0'}),
+            self.design_texts(
+                texts="""
+                        Make sure that the other parameters are correctly implemented from the "Model Dataset" section above.
+                        Taking time for the model training; depending on number of multi-selectable parameters and model(max 3 mins).
+                      """,
+            type_='Ul',
+            ),
+            S_DASH_LINE,
             # Confirmation 
             dcc.ConfirmDialog(
-                id={'obj': 'confirmation', 'action': 'model'},
+                id={'obj': 'confirmation', 'action': 'new-model'},
                 message='Are you sure you want to start learning new model?',
             ),
             # Finalize Button
             html.Button('Finalize Settings and Launch New Model', 
-                    id={'obj': 'finalize-button', 'action': 'model'}, 
+                    id={'obj': 'finalize-button', 'action': 'new-model'}, 
                     n_clicks=0, 
                     style=BUTTON_STYLE
             ), 
@@ -1493,7 +1546,8 @@ class Design:
     def design_accordion(self, titles: list, contents: list):
         elements = dmc.AccordionMultiple([
             dmc.AccordionItem([
-                dmc.AccordionControl(title, style={'backgroundColor': '#444', 'color': '#F9F9F9', 'margin': '5px 0'}),
+                dmc.AccordionControl(title, 
+                                     style={'border': '3px solid #fff', 'backgroundColor': '#444', 'color': '#F9F9F9', 'margin': '5px 0'}),
                 dmc.AccordionPanel(children=content, style={'backgroundColor': '#333'}),
             ],
             value=title,
@@ -1501,6 +1555,7 @@ class Design:
             for title, content in zip(titles, contents)
         ],
         variant='filled',
+        radius='md',
         style={'margin': '30px 20px'}
         )
         
@@ -1761,11 +1816,11 @@ class Design:
             [Output({'obj':'output-table', 'action': 'model-dataset'}, 'data'),
              Output({'obj':'output-table', 'action': 'model-dataset'}, 'columns')],
             [Input({'obj':'confirmation', 'action': 'model-dataset'}, 'submit_n_clicks')],
-            [State('independent-variable-dropdown', 'value'),
-            State('target-variable-dropdown', 'value'),
-            State('moving-averages-dropdown', 'value'),
-            State('future-prediction-dropdown', 'value'),
-            State('initial-training-data-size', 'value'),
+            [State('X-select', 'value'),
+            State('y-select', 'value'),
+            State('ma-select', 'value'),
+            State('fp-select', 'value'),
+            State('init-train-num', 'value'),
             State('poly-degree', 'value')],
             prevent_initial_call=True
         )
@@ -1788,7 +1843,7 @@ class Design:
         # Launch the customized model
         """@self.app.callback(
             Output('model-results-tab', 'children'),
-            Input({'obj':'confirmation', 'action': 'model'}, 'submit_n_clicks'),
+            Input({'obj':'confirmation', 'action': 'new-model'}, 'submit_n_clicks'),
             #[
             #    State(),
             #    State(),
