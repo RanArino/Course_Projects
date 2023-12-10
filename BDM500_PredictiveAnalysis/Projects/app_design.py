@@ -115,7 +115,7 @@ class Design:
         # initialize id
         self.design_ha_viz_id = 0
         # number of new models
-        self.num_new_model = 1
+        self.num_new_model = 0
 
         # Data Process
         #  for preprocessing
@@ -894,7 +894,7 @@ class Design:
             Scopes: One, Three, Six, Nine, Twelve Months
         """
         hyperparams = """
-            "nta_": Learning rate of the gradient descent (default: 0.01).
+            "eta_": Learning rate of the gradient descent (default: 0.01).
             "alpha_": degree of how strong the regularizations are (default: 0.1).
             "lambda_": balancer between l2 and l1 norm (default: 0.5).
             "iter_": iteration of parameter updates at each increment step (default: 100).
@@ -917,36 +917,51 @@ class Design:
             dbc.Row([
                 dbc.Col(html.Div([
                     html.Label('Models: '),
-                    dmc.Select(data=['Linear', 'Logistic', 'CART'], value='Linear', required=True,
-                               id={'action': 'new-model', 'obj': 'model'})
-                ]), style={'minWidth': '150px'}),
+                    dmc.Select(
+                        id={'action': 'new-model-params', 'obj': 'model'},
+                        data=['LinR', 'LogR', 'CART'], 
+                        value='LinR', 
+                        required=True,
+                        style={'width':'fit-content'}
+                    )
+                ]), style={'minWidth': 'fit-content'}),
                 dbc.Col(html.Div([
-                    html.Label('Nta: '),
-                    dmc.NumberInput(min=0, max=0.1, step=0.0001, value=0.01, required=True,
-                                   id={'action': 'new-model', 'obj': 'nta'})
-                ]), style={'minWidth': '150px'}),
+                    html.Label('Scopes: '),
+                    dmc.MultiSelect(
+                        id={'action': 'new-model-params', 'obj': 'scopes'},
+                        data=[{'label': f'{1} Month(s)', 'value': 1}] + [{'label': f'{i} Month(s)', 'value': i} for i in range(3, 13, 3)], 
+                        value=[1,3,6,9,12], 
+                        required=True,
+                        style={'width':'fit-content'}
+                    )
+                ]), style={'minWidth': 'fit-content'}),
+                dbc.Col(html.Div([
+                    html.Label('Eta: '),
+                    dmc.NumberInput(min=0, max=0.1, step=0.0001, value=0.01, precision=3, required=True, 
+                                   id={'action': 'new-model-params', 'obj': 'eta'}, style={'width':'fit-content'})
+                ]), style={'minWidth': 'fit-content'}),
                 dbc.Col(html.Div([
                     html.Label('Alpha: '),
-                    dmc.NumberInput(min=0, max=1, step=0.001, value=0.01, required=True,
-                                   id={'action': 'new-model', 'obj': 'alpha'})
-                ]), style={'minWidth': '150px'}),
+                    dmc.NumberInput(min=0, max=1, step=0.001, value=0.01, precision=3, required=True,
+                                   id={'action': 'new-model-params', 'obj': 'alpha'}, style={'width':'fit-content'})
+                ]), style={'minWidth': 'fit-content'}),
                 dbc.Col(html.Div([
                     html.Label('Lambda: '),
-                    dmc.NumberInput(min=0, max=1, step=0.1, value=0.5, required=True,
-                                   id={'action': 'new-model', 'obj': 'lambda'})
-                ]), style={'minWidth': '150px'}),
+                    dmc.NumberInput(min=0, max=1, step=0.1, value=0.5, precision=2, required=True,
+                                   id={'action': 'new-model-params', 'obj': 'lambda'}, style={'width':'fit-content'})
+                ]), style={'minWidth': 'fit-content'}),
                 dbc.Col(html.Div([
                     html.Label('Iterations: '),
                     dmc.NumberInput(min=1, step=1, value=100, required=True,
-                                   id={'action': 'new-model', 'obj': 'iter'})
-                ]), style={'minWidth': '150px'}),
+                                   id={'action': 'new-model-params', 'obj': 'iter'}, style={'width':'fit-content'})
+                ]), style={'minWidth': 'fit-content'}),
                 dbc.Col(html.Div([
                     html.Label('Max Depth: '),
                     dmc.NumberInput(min=1, step=1, value=5, required=True,
-                                   id={'action': 'new-model', 'obj': 'max-depth'})
-                ]), style={'minWidth': '150px'}),
+                                   id={'action': 'new-model-params', 'obj': 'max-depth'})
+                ]), style={'minWidth': 'fit-content'}),
             ],
-            style={'display': 'inline-flex', 'flexWrap': 'nowrap', 'overflowX': 'auto'}
+            style={'display': 'inline-flex', 'flexWrap': 'nowrap', 'overflowX': 'auto', 'width': '100%'}
             ),
             html.H4("Notations: ", style={'color': '#d9d9d9', 'margin': '30px 0'}),
             self.design_texts(
@@ -1012,55 +1027,16 @@ class Design:
             ),
             S_DASH_LINE,
             html.H4("Prediction Error and Its Distribution", style={'color': '#d9d9d9', 'margin': '20px 0'}),
-            self.design_cards_size(
-                card_width=[4,4,4],
-                contents=[
-                    # Moving Averages Select Dropdown
-                    html.Div([
-                        html.Label('Moving Averages:', style={'color': '#d9d9d9', 'paddingBottom': '10px'}),
-                        dmc.Select(
-                            id={'model': 'LinR_0', 'obj': 'ma'},
-                            placeholder="Select option",
-                            data=[{'label': f'{i} Month(s)', 'value': str(i)} for i in range(1, 4)], 
-                            value='1',  # Default value
-                            required=True,
-                            style={'backgroundColor': '#333', 'color': 'white', 'borderColor': '#555'}),
-                    ]),
-                    # Future Prediction Select Dropdown
-                    html.Div([
-                        html.Label('Predicted Months:', style={'color': '#d9d9d9', 'paddingBottom': '10px'}),
-                        dmc.Select(
-                            id={'model': 'LinR_0', 'obj': 'fp'},
-                            placeholder="Select option",
-                            data=[{'label': 'Mean', 'value': 'mean'}] + [{'label': f'{i} Month(s)', 'value': str(i)} for i in range(1, 7)], 
-                            value="mean",  # Default value
-                            required=True,
-                            style={'backgroundColor': '#333', 'color': 'white', 'borderColor': '#555'}
-                        ),
-                    ]),
-                    # Scopes Select Dropdown
-                    html.Div([
-                        html.Label('Scopes:', style={'color': '#d9d9d9', 'paddingBottom': '10px'}),
-                        dmc.Select(
-                            id={'model': 'LinR_0', 'obj': 'sc'},
-                            placeholder="Select option",
-                            data=[{'label': 'Mean', 'value': 'mean'}, {'label': f'{1} Month(s)', 'value': '1'}] + [{'label': f'{i} Month(s)', 'value': str(i)} for i in range(3, 13, 3)],  
-                            value="mean",  # Default value
-                            required=True,
-                            style={'backgroundColor': '#333', 'color': 'white', 'borderColor': '#555'}
-                        )
-                    ]),
-                ]
-            ),
+            self.design_def_perf_select(model='LinR'),
             html.Button(
                 'Generate New Figures', 
-                id={'obj': 'finalize-button', 'action': 'plot-detail-perf', 'model': 'LinR_0'}, 
+                id={'obj': 'finalize-button', 'action': 'plot-detail-perf', 'model': 'LinR_M0'}, 
                 n_clicks=0, 
                 style=BUTTON_STYLE
             ),   
             self.design_ha_viz(
                 viz=[*self.detail_perf('LinR', self.fig_data['LinR']['pred_df'], 1)],
-                model='LinR_0'
+                model='LinR_M0'
             )
         ]
 
@@ -1125,53 +1101,17 @@ class Design:
                 type_='Ul'
             ),
             html.H4("Prediction Error and Its Distribution", style={'color': '#d9d9d9', 'margin': '20px 0'}),
-            self.design_cards_size(
-                card_width=[4,4,4],
-                contents=[
-                    # Moving Averages Select Dropdown
-                    html.Div([
-                        html.Label('Moving Averages:', style={'color': '#d9d9d9', 'paddingBottom': '10px'}),
-                        dmc.Select(
-                            id={'model': 'CART_0', 'obj': 'ma'},
-                            placeholder="Select option",
-                            data=[{'label': f'{i} Month(s)', 'value': str(i)} for i in range(1, 4)], 
-                            value='1',  # Default value
-                            required=True,
-                            style={'backgroundColor': '#333', 'color': 'white', 'borderColor': '#555'}),
-                    ]),
-                    # Future Prediction Select Dropdown
-                    html.Div([
-                        html.Label('Predicted Months:', style={'color': '#d9d9d9', 'paddingBottom': '10px'}),
-                        dmc.Select(
-                            id={'model': 'CART_0', 'obj': 'fp'},
-                            placeholder="Select option",
-                            data=[{'label': 'Mean', 'value': 'mean'}] + [{'label': f'{i} Month(s)', 'value': str(i)} for i in range(1, 7)], 
-                            value="mean",  # Default value
-                            required=True,
-                            style={'backgroundColor': '#333', 'color': 'white', 'borderColor': '#555'},
-                        ),
-                    ]),
-                    # Scopes Select Dropdown
-                    html.Div([
-                        html.Label('Scopes:', style={'color': '#d9d9d9', 'paddingBottom': '10px'}),
-                        dmc.Select(
-                            id={'model': 'CART_0', 'obj': 'sc'},
-                            placeholder="Not Options",
-                            value="mean",
-                            disabled=True,
-                        )
-                    ]),
-                ]
-            ),
+            self.design_def_perf_select(model='CART'),
+            
             html.Button(
                 'Generate New Figures', 
-                id={'obj': 'finalize-button', 'action': 'plot-detail-perf', 'model': 'CART_0'}, 
+                id={'obj': 'finalize-button', 'action': 'plot-detail-perf', 'model': 'CART_M0'}, 
                 n_clicks=0, 
                 style=BUTTON_STYLE
             ),   
             self.design_ha_viz(
                 viz=[*self.detail_perf('CART', self.fig_data['CART']['pred_df'], 1)],
-                model='CART_0'
+                model='CART_M0'
             )
         ]
 
@@ -1494,6 +1434,7 @@ class Design:
                         ticktext=[i[:4] for i in ticks_dates.strftime('%Y-%m-%d')])
 
         return fig1, fig2
+    
     # Design Shortcut
     def design_texts(self, texts: str, type_: str = "P"):
         # define style
@@ -1769,6 +1710,72 @@ class Design:
 
         return dbc.Row(elements, style={'margin': '15px auto'})
 
+    def design_def_perf_select(self, model: str):
+        # define model id
+        m_id = model + f'_M{self.num_new_model}'
+
+        elements = [
+            # Moving Averages Select Dropdown
+            html.Div([
+                html.Label('Moving Averages:', style={'color': '#d9d9d9', 'paddingBottom': '10px'}),
+                dmc.Select(
+                    id={'model': m_id, 'obj': 'ma'},
+                    placeholder="Select option",
+                    data=[{'label': f'{i} Month(s)', 'value': i} for i in range(1, 4)], 
+                    value=1,  # Default value
+                    required=True,
+                    style={'backgroundColor': '#333', 'color': 'white', 'borderColor': '#555'}),
+            ]),
+            # Future Prediction Select Dropdown
+            html.Div([
+                html.Label('Predicted Months:', style={'color': '#d9d9d9', 'paddingBottom': '10px'}),
+                dmc.Select(
+                    id={'model': m_id, 'obj': 'fp'},
+                    placeholder="Select option",
+                    data=[{'label': 'Mean', 'value': 'mean'}] + [{'label': f'{i} Month(s)', 'value': i} for i in range(1, 7)], 
+                    value="mean",  # Default value
+                    required=True,
+                    style={'backgroundColor': '#333', 'color': 'white', 'borderColor': '#555'},
+                ),
+            ]),
+        ]
+
+        if model == 'LinR':
+            elements += [
+                html.Div([
+                    html.Label('Scopes:', style={'color': '#d9d9d9', 'paddingBottom': '10px'}),
+                    dmc.Select(
+                        id={'model': m_id, 'obj': 'sc'},
+                        placeholder="Select option",
+                        data=[{'label': 'Mean', 'value': 'mean'}, {'label': f'{1} Month(s)', 'value': 1}] + [{'label': f'{i} Month(s)', 'value': i} for i in range(3, 13, 3)],  
+                        value="mean",  # Default value
+                        required=True,
+                        style={'backgroundColor': '#333', 'color': 'white', 'borderColor': '#555'}
+                    )
+                ])
+            ]
+
+        elif model == 'CART':
+            # Scopes Select Dropdown
+            elements += [
+                html.Div([
+                    html.Label('Scopes:', style={'color': '#d9d9d9', 'paddingBottom': '10px'}),
+                    dmc.Select(
+                        id={'model': m_id, 'obj': 'sc'},
+                        placeholder="Not Options",
+                        value="mean",
+                        disabled=True,
+                    )
+                ])
+            ]
+
+        else:
+            pass
+
+        return self.design_cards_size(contents=elements, card_width=[4,4,4])
+        
+
+
     def callbacks(self):
 
         # Matching legend in horizontal (ha) figure plots
@@ -1841,32 +1848,59 @@ class Design:
             
 
         # Launch the customized model
-        """@self.app.callback(
+        @self.app.callback(
             Output('model-results-tab', 'children'),
             Input({'obj':'confirmation', 'action': 'new-model'}, 'submit_n_clicks'),
-            #[
-            #    State(),
-            #    State(),
-            #]
+            [State({'action': 'new-model-params', 'obj': ALL}, 'value'),
+             State('X-select', 'value'),
+             State('ma-select', 'value')],
             prevent_initial_call=True
         )
-        def custom_model_result(submit_n_clicks):
+        def custom_model_result(submit_n_clicks, params, X_use, ma_lst):
             if submit_n_clicks:
-                # make sure all state variables are not blank
-                if not all([...]): # all
-                    return no_update
                 # use Patch
                 p = Patch()
-                # list for new results
-                new_results = []
-                # train model
-                
+                params_dict={k: params[i] for i, k in enumerate(['model', 'scopes', 'eta_', 'alpha_', 'lambda_', 'iter_', 'max_death_'])}
+                params_dict.update({'X_use': X_use})
+                print(params_dict, ma_lst)
+                model = params_dict['model']
+                """# train model
+                f1, f2, f3 = self.PA.model_learning(**params_dict)
+                if model != 'LogR':
+                    f4, f5 = self.detail(model=model, ma=ma_lst[0])
+                # update model count
+                self.num_new_model += 1
+                model_id = model + f'_M{self.num_new_model}'
+                # add elements
+                new_model_elements = [
+                    html.H4(f"New Model {self.num_new_model}: {model}", style={'color': '#d9d9d9', 'margin': '20px 0'}),
+                    self.design_ha_viz(viz=[f for f in f1], legends=True),
+                    S_DASH_LINE,
+                    html.H4("Backward Elimination & Development of Coefficients", style={'color': '#d9d9d9', 'margin': '20px 0'}),
+                        self.design_ha_viz(
+                            viz=[f2, f3], 
+                    )
+                ]
+                # for only LinR and CART
+                if model != 'LogR':
+                    new_model_elements += [
+                        S_DASH_LINE,
+                        html.H4("Prediction Error and Its Distribution", style={'color': '#d9d9d9', 'margin': '20px 0'}),
 
-                # append all results
-                p.append(new_results)
+                    ]
+                """
+
+                # Define all results
+                new_model_results = dbc.Tab(
+                    label=f"M{self.num_new_model}: {model}", 
+                    children=[html.Div('example')],
+                )
+                
+                # Append all results
+                p.append(new_model_results)
 
                 return p
-        """
+        
 
         # Update Detailed Performance
         @self.app.callback(
