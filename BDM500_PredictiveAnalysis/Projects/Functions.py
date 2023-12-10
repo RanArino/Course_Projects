@@ -226,8 +226,7 @@ class PredictiveAnalysis:
         - "lambda_": balancer between l2 and l1 norm.
         - "iter_": maximum iteration of parameter updates at each step
         (For classification and regression tree model)
-        - "max_death_": 
-
+        - "max_death_": the maximum depth of the tree.
         """
         # define variable
         self.sc_opts = scopes
@@ -866,13 +865,13 @@ class PredictiveAnalysis:
             # define fifure
             fig = px.scatter(perf_df, x='FP', y=ms, color='MA')
 
-            fig.update_xaxes(title_text='Moving Averages', title_font={'color':'lightgrey'})
+            fig.update_xaxes(title_text='Predicted Months', title_font={'color':'lightgrey'})
             fig.update_layout(
-                height=300, width=300, template='plotly_dark',
+                height=350, width=350, template='plotly_dark',
                 title=dict(text=self.titles[ms] if self.titles.get(ms) else ms,  xanchor="center", x=0.50),
                 showlegend=False, yaxis_title='', 
-                margin=go.layout.Margin(t=50, l=30, r=30, b=50)
-                ) 
+                margin=go.layout.Margin(t=50, l=20, r=20, b=50)
+                )
 
             figs.append(fig)
             
