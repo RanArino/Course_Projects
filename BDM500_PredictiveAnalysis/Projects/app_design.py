@@ -964,20 +964,22 @@ class Design:
                     html.Div([
                         html.Label('Moving Averages:', style={'color': '#d9d9d9', 'paddingBottom': '10px'}),
                         dmc.Select(
-                            id={'model': 'LinR', 'obj': 'ma'},
+                            id={'model': 'LinR_0', 'obj': 'ma'},
                             placeholder="Select option",
                             data=[{'label': f'{i} Month(s)', 'value': str(i)} for i in range(1, 7)], 
                             value='1',  # Default value
+                            required=True,
                             style={'backgroundColor': '#333', 'color': 'white', 'borderColor': '#555'}),
                     ]),
                     # Future Prediction Select Dropdown
                     html.Div([
                         html.Label('Predicted Months:', style={'color': '#d9d9d9', 'paddingBottom': '10px'}),
                         dmc.Select(
-                            id={'model': 'LinR', 'obj': 'fp'},
+                            id={'model': 'LinR_0', 'obj': 'fp'},
                             placeholder="Select option",
                             data=[{'label': 'Mean', 'value': 'mean'}] + [{'label': f'{i} Month(s)', 'value': str(i)} for i in range(1, 7)], 
                             value="mean",  # Default value
+                            required=True,
                             style={'backgroundColor': '#333', 'color': 'white', 'borderColor': '#555'}
                         ),
                     ]),
@@ -985,10 +987,11 @@ class Design:
                     html.Div([
                         html.Label('Scopes:', style={'color': '#d9d9d9', 'paddingBottom': '10px'}),
                         dmc.Select(
-                            id={'model': 'LinR', 'obj': 'sc'},
+                            id={'model': 'LinR_0', 'obj': 'sc'},
                             placeholder="Select option",
                             data=[{'label': 'Mean', 'value': 'mean'}, {'label': f'{1} Month(s)', 'value': '1'}] + [{'label': f'{i} Month(s)', 'value': str(i)} for i in range(3, 13, 3)],  
                             value="mean",  # Default value
+                            required=True,
                             style={'backgroundColor': '#333', 'color': 'white', 'borderColor': '#555'}
                         )
                     ]),
@@ -996,13 +999,13 @@ class Design:
             ),
             html.Button(
                 'Generate New Figures', 
-                id={'obj': 'finalize-button', 'action': 'plot-detail-perf', 'model': 'LinR'}, 
+                id={'obj': 'finalize-button', 'action': 'plot-detail-perf', 'model': 'LinR_0'}, 
                 n_clicks=0, 
                 style=BUTTON_STYLE
             ),   
             self.design_ha_figs(
                 figs=[*self.detail_perf('LinR', self.fig_data['LinR']['pred_df'], 1)],
-                model='LinR'
+                model='LinR_0'
             )
         ]
 
@@ -1063,45 +1066,46 @@ class Design:
                     html.Div([
                         html.Label('Moving Averages:', style={'color': '#d9d9d9', 'paddingBottom': '10px'}),
                         dmc.Select(
-                            id={'model': 'CART', 'obj': 'ma'},
+                            id={'model': 'CART_0', 'obj': 'ma'},
                             placeholder="Select option",
                             data=[{'label': f'{i} Month(s)', 'value': str(i)} for i in range(1, 7)], 
                             value='1',  # Default value
+                            required=True,
                             style={'backgroundColor': '#333', 'color': 'white', 'borderColor': '#555'}),
                     ]),
                     # Future Prediction Select Dropdown
                     html.Div([
                         html.Label('Predicted Months:', style={'color': '#d9d9d9', 'paddingBottom': '10px'}),
                         dmc.Select(
-                            id={'model': 'CART', 'obj': 'fp'},
+                            id={'model': 'CART_0', 'obj': 'fp'},
                             placeholder="Select option",
                             data=[{'label': 'Mean', 'value': 'mean'}] + [{'label': f'{i} Month(s)', 'value': str(i)} for i in range(1, 7)], 
                             value="mean",  # Default value
-                            style={'backgroundColor': '#333', 'color': 'white', 'borderColor': '#555'}
+                            required=True,
+                            style={'backgroundColor': '#333', 'color': 'white', 'borderColor': '#555'},
                         ),
                     ]),
                     # Scopes Select Dropdown
                     html.Div([
                         html.Label('Scopes:', style={'color': '#d9d9d9', 'paddingBottom': '10px'}),
                         dmc.Select(
-                            id={'model': 'CART', 'obj': 'sc'},
-                            placeholder="Select option",
-                            data=[{'label': 'Mean', 'value': 'mean'}, {'label': f'{1} Month(s)', 'value': '1'}] + [{'label': f'{i} Month(s)', 'value': str(i)} for i in range(3, 13, 3)],  
-                            value="mean",  # Default value
-                            style={'backgroundColor': '#333', 'color': 'white', 'borderColor': '#555'}
+                            id={'model': 'CART_0', 'obj': 'sc'},
+                            placeholder="Not Options",
+                            value="mean",
+                            disabled=True,
                         )
                     ]),
                 ]
             ),
             html.Button(
                 'Generate New Figures', 
-                id={'obj': 'finalize-button', 'action': 'plot-detail-perf', 'model': 'CART'}, 
+                id={'obj': 'finalize-button', 'action': 'plot-detail-perf', 'model': 'CART_0'}, 
                 n_clicks=0, 
                 style=BUTTON_STYLE
             ),   
             self.design_ha_figs(
-                figs=[*self.detail_perf('CART', self.fig_data['LinR']['pred_df'], 1)],
-                model='CART'
+                figs=[*self.detail_perf('CART', self.fig_data['CART']['pred_df'], 1)],
+                model='CART_0'
             )
         ]
 
@@ -1144,6 +1148,14 @@ class Design:
 
             Return: plotly.graph_objs._figure.Figure
         """
+        # modify model name if needed
+        if '_' in model:
+            model = model.split('_')[0]
+
+        # when model is CART, sc is not optional
+        if model == 'CART':
+            sc = 'mean'
+
         # index as Date
         pred_df = pred_df.set_index('Date')
         # (1): Line Charts
@@ -1472,7 +1484,7 @@ class Design:
 
         # if model name is assigned
         if model:
-            base_fig_id = {'model': model, 'g_id': self.design_ha_figs_id}
+            base_fig_id = {'model': model}
         
         # commom legends
         if legends:
@@ -1636,8 +1648,8 @@ class Design:
         # Update Detailed Performance
         @self.app.callback(
             output=dict(
-                line=Output({'model': MATCH, 'g_id': ALL, 'id': '0'}, 'figure'),
-                dist=Output({'model': MATCH, 'g_id': ALL, 'id': '1'}, 'figure'),
+                line=Output({'model': MATCH, 'id': '0'}, 'figure'),
+                dist=Output({'model': MATCH, 'id': '1'}, 'figure'),
             ),
             inputs=dict(
                 clicks=Input({'obj': 'finalize-button', 'action': 'plot-detail-perf', 'model': MATCH}, 'n_clicks')
@@ -1650,18 +1662,15 @@ class Design:
             prevent_initial_call=True
         )
         def update_detail_perf(clicks, ma, fp, sc):
-            print(clicks, ma, fp, sc)
-            print(ctx.triggered_prop_ids)
-            print(ctx.triggered_id)
-            """
-            1 1 2 mean
-            {'{"action":"plot-detail-perf","model":"LinR","obj":"finalize-button"}.n_clicks': {'action': 'plot-detail-perf', 'model': 'LinR', 'obj': 'finalize-button'}}     
-            {'action': 'plot-detail-perf', 'model': 'LinR', 'obj': 'finalize-button'}
-            """
-            #if n_clicks > 0:
+            # get triggered id
+            trig_id = ctx.triggered_id
+            if clicks > 0 and trig_id:
+                # get the triggered model
+                model = trig_id['model'].split('_')[0]
                 # generate new figure
-                #line_, dist_ = self.detail_perf()
+                line_, dist_ = self.detail_perf(model, self.fig_data[model]['pred_df'], ma, fp, sc)
 
-            return dict(line=no_update, dist=no_update)
+                return dict(line=line_, dist=dist_)
 
-            #return dict(line=line_, dist=dist_)
+            else:
+                return no_update
