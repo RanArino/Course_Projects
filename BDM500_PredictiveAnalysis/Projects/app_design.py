@@ -9,6 +9,9 @@ import pandas as pd
 from scipy.stats import skew
 from itertools import combinations
 
+import os
+import json
+
 from Functions import PredictiveAnalysis
 
 # dash table design
@@ -51,6 +54,18 @@ TABLE_STYLE = dict(
         'overflowX': 'auto'
     }
 )
+# common button style
+BUTTON_STYLE = dict(
+    backgroundColor='#217CA3',
+    color='white',
+    border='none',
+    padding='10px 20px',
+    margin='10px',
+    borderRadius='5px',
+    cursor='pointer',
+    fontSize='16px',
+    width='100%',
+)
 #  plotly figure design
 FIG_LAYOUT = dict(
     template='plotly_dark',
@@ -60,6 +75,9 @@ FIG_LAYOUT = dict(
 # horizontal dash line
 DASH_LINE = html.Hr(style={'borderTop': '2px dashed #fff', 'margin': '75px 0'})
 S_DASH_LINE = html.Hr(style={'borderTop': '1px dashed #fff', 'margin': '25px 10px'})
+# sub title CSS
+SUB_CSS = 'style="font-size: 12.5px; color: lightgrey;"'
+
 # color
 COLORS = [
     'rgba(99, 110, 250, 0.70)',
@@ -89,7 +107,7 @@ def FIG_COLOR(fig_data):
 
 
 class Design:
-    def __init__(self, app: Dash, df: pd.DataFrame):
+    def __init__(self, app: Dash, df: pd.DataFrame, path: str):
         # app
         self.app = app
         # assign original data frame
@@ -99,7 +117,7 @@ class Design:
 
         # Data Process
         #  for preprocessing
-        """self.df1 = self.origin.dropna()
+        self.df1 = self.origin.dropna()
         self.group_year = self.df1.groupby('Year').count().reset_index()
         self.df2 = self.df1.copy()
         self.df2 = self.df2[self.df2['Year'] >= 1978].reset_index(drop=True)
@@ -134,7 +152,26 @@ class Design:
 
         # assign PredictiveAnalysis class
         self.PA = PredictiveAnalysis(self.df4)
-        self.new_df = self.PA.create_data(['CSENT', 'IPM', 'HOUSE', 'UNEMP', 'LRIR'], 'SP500', ma=[1,2,3], fp=[1,2,3,4,5,6], init_train=120, poly_d=1)"""
+        self.new_df = self.PA.create_data(['CSENT', 'IPM', 'HOUSE', 'UNEMP', 'LRIR'], 'SP500', ma=[1,2,3], fp=[1,2,3,4,5,6], init_train=120, poly_d=1)
+
+        # loading json files
+        self.fig_data = {}
+        f_names = ['default_linear', 'default_logit', 'default_cart', 'final_linear']
+        for i, k1 in enumerate(['LinR', 'LogR', 'CART', 'LinBest']):
+            # set space
+            self.fig_data[k1] = {}
+            # loading json files
+            file_name = os.path.join(path, 'json_files', f"{f_names[i]}.json")
+            with open(file_name, 'r') as file:
+                data_dict = json.load(file)
+                for k2, v2 in data_dict.items():
+                    # Deserialize DataFrame
+                    if k2 == 'pred_df':  # 'pred_df' is the key for the DataFrame
+                        self.fig_data[k1][k2] = pd.read_json(v2)
+
+                    # Deserialize Plotly Figures
+                    else:
+                        self.fig_data[k1][k2] = go.Figure(json.loads(v2))
 
     # Contents
     def header(self):
@@ -433,7 +470,7 @@ class Design:
         elements += [
             dbc.Row([
                 html.H4("Histogram / Skewness", style={'color': '#d9d9d9', 'margin': '20px 0'}),
-                self.design_ha_figs(figs2)
+                self.design_ha_figs(figs=figs2)
             ]),
             dbc.Row([
                 dbc.Col([
@@ -492,11 +529,11 @@ class Design:
         # define tabs
         tab_elements_2 = [
             [
-                self.design_ha_figs(figs3_1),
+                self.design_ha_figs(figs=figs3_1),
                 self.design_observe(comments_3_1, type_='Ul', title='Feature Relationships')
             ],
             [
-                self.design_ha_figs(figs3_2, legends=True),
+                self.design_ha_figs(figs=figs3_2, legends=True),
                 self.design_observe(comments_3_2, type_='Ul', title='Feature Relationships')
             ]
         ]
@@ -547,7 +584,7 @@ class Design:
         elements += [
             dbc.Row([
                 html.H4("Trends of Economic data", style={'color': '#d9d9d9', 'margin': '20px 0'}),
-                self.design_ha_figs(figs4, comments=comments_4),
+                self.design_ha_figs(figs=figs4, comments=comments_4),
             ]),
             DASH_LINE
         ]
@@ -584,7 +621,7 @@ class Design:
         # add element
         elements += [
             html.H4("Stratified Histogram", style={'color': '#d9d9d9', 'margin': '20px 0'}),
-            self.design_ha_figs(figs5, legends=True),
+            self.design_ha_figs(figs=figs5, legends=True),
             self.design_observe(comments_5, type_='Ul'),
             DASH_LINE
         ]
@@ -811,17 +848,7 @@ class Design:
                     html.Button('Finalize the Model Dataset', 
                             id={'obj': 'finalize-button', 'action': 'model-dataset'}, 
                             n_clicks=0, 
-                            style={
-                                    'backgroundColor': '#217CA3',
-                                    'color': 'white',
-                                    'border': 'none',
-                                    'padding': '10px 20px',
-                                    'margin': '10px',
-                                    'borderRadius': '5px',
-                                    'cursor': 'pointer',
-                                    'fontSize': '16px',
-                                    'width': '100%',
-                                }
+                            style=BUTTON_STYLE
                     ),    
                 ])
             ],
@@ -849,29 +876,249 @@ class Design:
         elements = [
             html.H3('Model Results / Performances', style={'textAlign': 'center', 'margin': '30px auto'})
         ]
-        # titles
-        titles = ['Linear Regression', 'Logistic Regression', 'Classification and Regression Tree (CART)']
-        
-        # linear regression
-        linear_elements = [
-            html.Div('Hello'),
-            html.Div('Hello')
+
+        # Descriptions of Default settings and Hyperparameters
+        settings = """
+            Independent Variables: 'CSENT', 'IPM', 'HOUSE', 'UNEMP', 'LRIR'
+            Target Variables: 'SP500'
+            Moving Averages: From One to Three Months
+            Future Predictions: From One to Six Months
+            Scopes: One, Three, Six, Nine, Twelve Months
+        """
+        hyperparams = """
+            "nta_": Learning rate of the gradient descent (default: 0.01).
+            "alpha_": degree of how strong the regularizations are (default: 0.1).
+            "lambda_": balancer between l2 and l1 norm (default: 0.5).
+            "iter_": iteration of parameter updates at each increment step (default: 100).
+            "max_death_": the maximum depth of the tree; only CART model (default: 5).
+        """
+        elements += [
+            # description of default setting and parameters
+            self.design_cards_size(
+                titles=['Default Model Settings', 'Default Hyperparameters'],
+                texts=[settings, hyperparams],
+                type_='Ul',
+                card_width=[6,6]
+                ),
         ]
 
-        # logistic regression
-        logit_elements = [
-            html.Div('Hello'),
-            html.Div('Hello')
-        ]
+        # Section of the Customize Model
+        model_custom = [
 
-        # CART
-        cart_elements = [
-            html.Div('Hello'),
-            html.Div('Hello')
+            # Confirmation 
+            dcc.ConfirmDialog(
+                id={'obj': 'confirmation', 'action': 'model'},
+                message='Are you sure you want to start learning new model?',
+            ),
+            # Finalize Button
+            html.Button('Finalize Settings and Launch New Model', 
+                    id={'obj': 'finalize-button', 'action': 'model'}, 
+                    n_clicks=0, 
+                    style=BUTTON_STYLE
+            ), 
         ]
 
         elements += [
-            self.design_tabs(titles, [linear_elements, logit_elements, cart_elements]),
+            self.design_accordion(titles=['Customize the Models'], contents=[model_custom]),
+            S_DASH_LINE,
+        ]
+
+
+        # Model Results (Defaults + Customized)
+        # tab titles
+        titles = ['Linear Regression', 'Logistic Regression', 'Classification and Regression Tree (CART)']
+        
+        # Linear Regression
+        #  comments / observations
+        texts_lin_kpi = """
+            example
+            example
+        """
+        texts_lin_be = """
+            example
+            example
+        """
+        texts_lin_coef = """
+            example
+            example
+        """
+        #  elements for linear 
+        linear_elements = [
+            html.H4("Regression Metrics / KPIs", style={'color': '#d9d9d9', 'margin': '20px 0'}),
+            # regression KPIs
+            self.design_ha_figs(figs=[self.fig_data['LinR'][key] for key in ['RMSE', 'SE', 'R2', 'adj_R2']], legends=True),
+            self.design_observe(texts=texts_lin_kpi, type_='Ul', title='Observations: '),
+            S_DASH_LINE,
+            html.H4("Backward Elimination & Development of Coefficients", style={'color': '#d9d9d9', 'margin': '20px 0'}),
+            self.design_ha_figs(
+                figs=[self.fig_data['LinR']['BE'], self.fig_data['LinR']['Coef']], 
+                comments=[texts_lin_be, texts_lin_coef], 
+                type_='Ul'
+            ),
+            S_DASH_LINE,
+            html.H4("Prediction Error and Its Distribution", style={'color': '#d9d9d9', 'margin': '20px 0'}),
+            self.design_cards_size(
+                card_width=[4,4,4],
+                contents=[
+                    # Moving Averages Select Dropdown
+                    html.Div([
+                        html.Label('Moving Averages:', style={'color': '#d9d9d9', 'paddingBottom': '10px'}),
+                        dmc.Select(
+                            id={'model': 'LinR', 'obj': 'ma'},
+                            placeholder="Select option",
+                            data=[{'label': f'{i} Month(s)', 'value': str(i)} for i in range(1, 7)], 
+                            value='1',  # Default value
+                            style={'backgroundColor': '#333', 'color': 'white', 'borderColor': '#555'}),
+                    ]),
+                    # Future Prediction Select Dropdown
+                    html.Div([
+                        html.Label('Predicted Months:', style={'color': '#d9d9d9', 'paddingBottom': '10px'}),
+                        dmc.Select(
+                            id={'model': 'LinR', 'obj': 'fp'},
+                            placeholder="Select option",
+                            data=[{'label': 'Mean', 'value': 'mean'}] + [{'label': f'{i} Month(s)', 'value': str(i)} for i in range(1, 7)], 
+                            value="mean",  # Default value
+                            style={'backgroundColor': '#333', 'color': 'white', 'borderColor': '#555'}
+                        ),
+                    ]),
+                    # Scopes Select Dropdown
+                    html.Div([
+                        html.Label('Scopes:', style={'color': '#d9d9d9', 'paddingBottom': '10px'}),
+                        dmc.Select(
+                            id={'model': 'LinR', 'obj': 'sc'},
+                            placeholder="Select option",
+                            data=[{'label': 'Mean', 'value': 'mean'}, {'label': f'{1} Month(s)', 'value': '1'}] + [{'label': f'{i} Month(s)', 'value': str(i)} for i in range(3, 13, 3)],  
+                            value="mean",  # Default value
+                            style={'backgroundColor': '#333', 'color': 'white', 'borderColor': '#555'}
+                        )
+                    ]),
+                ]
+            ),
+            html.Button(
+                'Generate New Figures', 
+                id={'obj': 'finalize-button', 'action': 'plot-detail-perf', 'model': 'LinR'}, 
+                n_clicks=0, 
+                style=BUTTON_STYLE
+            ),   
+            self.design_ha_figs(
+                figs=[*self.detail_perf('LinR', self.fig_data['LinR']['pred_df'], 1)],
+                model='LinR'
+            )
+        ]
+
+        # Logistic Regression
+        #  comments / observations
+        texts_log_kpi = """
+            example
+            example
+        """
+        texts_log_be = """
+            example
+            example
+        """
+        texts_log_coef = """
+            example
+            example
+        """
+        #  elements for logistic regression
+        logit_elements = [
+            html.H4("Classification Metrics / KPIs", style={'color': '#d9d9d9', 'margin': '20px 0'}),
+            # classification KPIs
+            self.design_ha_figs(figs=[self.fig_data['LogR'][key] for key in ['Accuracy', 'Precision', 'Recall', 'F1_Score', 'AUC']], legends=True),
+            S_DASH_LINE,
+            html.H4("Backward Elimination & Development of Coefficients", style={'color': '#d9d9d9', 'margin': '20px 0'}),
+            self.design_ha_figs(
+                figs=[self.fig_data['LogR']['BE'], self.fig_data['LogR']['Coef']], 
+                comments=[texts_log_be, texts_log_coef],
+                type_='Ul'
+            )
+        ]
+
+        # CART
+        #  comments / observations
+        texts_cart_kpi = """
+            example
+            example
+        """
+        texts_cart_coef = """
+            example
+            example
+        """
+        cart_elements = [
+            html.H4("Regression Metrics / KPIs", style={'color': '#d9d9d9', 'margin': '20px 0'}),
+            # regression KPIs
+            self.design_ha_figs(figs=[self.fig_data['CART'][key] for key in ['RMSE', 'SE', 'R2', 'adj_R2']], legends=True),
+            S_DASH_LINE,
+            html.H4("Development of Coefficients", style={'color': '#d9d9d9', 'margin': '20px 0'}),
+            self.design_ha_figs(
+                figs=[self.fig_data['CART']['Coef']], 
+                comments=[texts_cart_coef],
+                type_='Ul'
+            ),
+            html.H4("Prediction Error and Its Distribution", style={'color': '#d9d9d9', 'margin': '20px 0'}),
+            self.design_cards_size(
+                card_width=[4,4,4],
+                contents=[
+                    # Moving Averages Select Dropdown
+                    html.Div([
+                        html.Label('Moving Averages:', style={'color': '#d9d9d9', 'paddingBottom': '10px'}),
+                        dmc.Select(
+                            id={'model': 'CART', 'obj': 'ma'},
+                            placeholder="Select option",
+                            data=[{'label': f'{i} Month(s)', 'value': str(i)} for i in range(1, 7)], 
+                            value='1',  # Default value
+                            style={'backgroundColor': '#333', 'color': 'white', 'borderColor': '#555'}),
+                    ]),
+                    # Future Prediction Select Dropdown
+                    html.Div([
+                        html.Label('Predicted Months:', style={'color': '#d9d9d9', 'paddingBottom': '10px'}),
+                        dmc.Select(
+                            id={'model': 'CART', 'obj': 'fp'},
+                            placeholder="Select option",
+                            data=[{'label': 'Mean', 'value': 'mean'}] + [{'label': f'{i} Month(s)', 'value': str(i)} for i in range(1, 7)], 
+                            value="mean",  # Default value
+                            style={'backgroundColor': '#333', 'color': 'white', 'borderColor': '#555'}
+                        ),
+                    ]),
+                    # Scopes Select Dropdown
+                    html.Div([
+                        html.Label('Scopes:', style={'color': '#d9d9d9', 'paddingBottom': '10px'}),
+                        dmc.Select(
+                            id={'model': 'CART', 'obj': 'sc'},
+                            placeholder="Select option",
+                            data=[{'label': 'Mean', 'value': 'mean'}, {'label': f'{1} Month(s)', 'value': '1'}] + [{'label': f'{i} Month(s)', 'value': str(i)} for i in range(3, 13, 3)],  
+                            value="mean",  # Default value
+                            style={'backgroundColor': '#333', 'color': 'white', 'borderColor': '#555'}
+                        )
+                    ]),
+                ]
+            ),
+            html.Button(
+                'Generate New Figures', 
+                id={'obj': 'finalize-button', 'action': 'plot-detail-perf', 'model': 'CART'}, 
+                n_clicks=0, 
+                style=BUTTON_STYLE
+            ),   
+            self.design_ha_figs(
+                figs=[*self.detail_perf('CART', self.fig_data['LinR']['pred_df'], 1)],
+                model='CART'
+            )
+        ]
+
+        # Aggregate all model elements
+        elements += [
+            html.H4('Visualizations of Each Model', style={'color': '#d9d9d9', 'margin': '40px 10px'}),
+            # summary of each model result
+            dbc.Tabs(
+                id = 'model-results-tab',
+                children=[
+                    dbc.Tab(
+                        label=title, 
+                        children=[html.Div(content)],
+                    )
+                    for title, content in zip(titles, [linear_elements, logit_elements, cart_elements])
+                ]
+            ),
             DASH_LINE
         ]
 
@@ -887,6 +1134,154 @@ class Design:
 
     def further_approach(self):
         pass
+
+    # Plotly Figure
+    def detail_perf(self, model: str, pred_df: pd.DataFrame, ma: int, fp: int|str = 'mean', sc: int|str = 'mean'):
+        """
+            Return two plotly chart:
+            - Line chart: Comparing the predicted and actual value.
+            - Mix chart:  Distribution of the predicted errors by histogram and scatter plots.
+
+            Return: plotly.graph_objs._figure.Figure
+        """
+        # index as Date
+        pred_df = pred_df.set_index('Date')
+        # (1): Line Charts
+        fig1 = go.Figure()
+        # common x-axis data
+        x_date = pd.to_datetime(pred_df.index.values)
+        # actual value
+        actual = pred_df[f'Act_{ma}MA']
+        fig1.add_trace(go.Scatter(x=x_date, y=actual, mode='lines', name='Actual'))
+
+        # function to add bands (3 stds)
+        def add_bands(fig, predict, cols):
+            sigma_3 = (pred_df[cols].std(axis=1) * 3).values
+            fig.add_traces([
+                go.Scatter(
+                    name='+-3 sigma',
+                    x=x_date, y=predict - sigma_3, 
+                    mode='lines', line=dict(width=0, color='rgba(255, 255, 255, 0)'),
+                    legendgroup='bands', hovertemplate='Lower: %{y:.2f}<extra></extra>', showlegend=False
+                ),
+                go.Scatter(
+                    name='+-3 sigma', 
+                    x=x_date, y=predict + sigma_3,
+                    mode='lines', line=dict(width=0, color='rgba(255, 255, 255, 0)'),
+                    fillcolor='rgba(255, 255, 255, 0.2)', fill='tonexty', 
+                    legendgroup='bands', hovertemplate='Upper: %{y:.2f}<extra></extra>', showlegend=True
+                ),
+            ])
+            return fig
+
+        # predictions
+        draw_bands = True
+        #  if both 'fp' and 'sc' are number
+        if fp != 'mean' and sc != 'mean':
+            filter_cols = f'Pred_{ma}MA_{fp}FP_{sc}SC'
+            predict = pred_df[filter_cols]
+            sub_title1 = f'<br><span {SUB_CSS}> --Adjusted parameters to predict a target price {fp} month(s) ahead.</span>'
+            sub_title2 = f'<br><span {SUB_CSS}> --Focused on {sc} month(s) of data to update parameters at each step.</span>'
+            draw_bands = False
+        #  if only sc is 'mean
+        elif fp != 'mean' and sc == 'mean':
+            filter_cols = [c for c in pred_df.columns if c.startswith(f'Pred_{ma}MA_{fp}FP')]
+            predict = pred_df[filter_cols].mean(axis=1)
+            sub_title1 = f'<br><span {SUB_CSS}> --Adjusted parameters to predict a target price {fp} month(s) ahead.</span>'
+            sub_title2 = f'<br><span {SUB_CSS}> --Aggregated different prediction results generated from all scopes.</span>'
+            if model == 'CART':
+                draw_bands = False
+        #  if only fp is 'mean'
+        elif fp == 'mean' and sc != 'mean':
+            filter_cols = [c for c in pred_df.columns 
+                        if c.startswith(f'Pred_{ma}MA') and c.endswith(f'_{sc}SC')]
+            predict = pred_df[filter_cols].mean(axis=1)
+            sub_title1 = f'<br><span {SUB_CSS}> --Aggregated multiple results generated from all defined future months ahead.</span>'
+            sub_title2 = f'<br><span {SUB_CSS}> --Focused on the recent {sc} month(s) of data to update parameters at each step.</span>'
+        #  else; both are 'mean'
+        else:
+            filter_cols = [c for c in pred_df.columns if c.startswith(f'Pred_{ma}MA')]
+            predict = pred_df[filter_cols].mean(axis=1)
+            sub_title1 = f'<br><span {SUB_CSS}> --Aggregated all results from different futures ahead & scopes.</span>'
+            sub_title2 = f'<br><span {SUB_CSS}> --Bands showing three standard deviations based on all results. </span>'
+
+        # drawing line
+        fig1.add_trace(go.Scatter(x=x_date, y=predict, mode='lines', name='Predict',
+                                line=dict(color='lightgreen')))
+        # drawing bands
+        if draw_bands:
+            fig1 = add_bands(fig1, predict, filter_cols)
+
+        # layout
+        if ma == 1:
+            add_title = '(Actual Prices)'
+        else:
+            add_title = f'({ma}-Month Moving Averaged Prices)'
+        # adjustment
+        adj_y = 0
+        if model == "CART":
+            sub_title2=''
+            adj_y = 0.05
+
+        main_title = 'Prediction of %YoY S&P500 ' + add_title
+        fig1.update_layout(
+            height=400, width=700, template='plotly_dark', hovermode="x unified", 
+            title=dict(text=main_title+sub_title1+sub_title2, y=0.90-adj_y),
+            legend=dict(orientation="h", yanchor="bottom", y=0.05, xanchor="left", x=0.0),
+            margin=go.layout.Margin(l=80, r=40, b=40, t=100)
+        )
+        fig1.update_traces(
+            selector=dict(name='3 sigma'),
+            line=dict(color='rgba(255, 255, 255, 0.2)'), 
+            overwrite=True 
+        )
+
+
+        # (2): Distribution Charts
+        # calculate error
+        error = (actual - predict).values
+        # the highest frequency (max count)
+        hist, _ = np.histogram(error[~np.isnan(error)], bins=10)
+        max_freq= max(hist)
+        # scale change(max_freq is assigned 70% of the final plots)
+        total_obs = len(x_date)
+        scale_chg = (total_obs*max_freq / (total_obs*0.7)) / total_obs
+        # define figure
+        fig2 = go.Figure() 
+        # adding fig data
+        fig2.add_traces([
+            # distribution plots
+            go.Histogram(
+                y=error, nbinsy=20, marker=dict(color='grey', opacity=0.5), 
+                histnorm='', name='Distribution'
+            ),
+            # error plots
+            go.Scatter(
+                x=[i * scale_chg for i in range(len(x_date))], y=error, mode='markers', 
+                marker=dict(color='red', opacity=0.5), name='Error',
+                hoverinfo='name+y+text', text=["Date: " + d.strftime("%b %Y") for d in fig1.data[0]['x']],
+            ),
+        ])
+        
+        # lauput
+        main = "Distribution of the Predicted Errors"
+        sub = f"<br><span {SUB_CSS}> -- Histogram shows the frequency of each predicted error.</span>"
+        fig2.update_layout(
+            height=400, width=700, template='plotly_dark', hovermode="x unified",
+            title=main+sub, yaxis_title='YoY Growth (%)',
+            legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="right", x=0.95),
+            margin=go.layout.Margin(l=80, r=40, b=40, t=80))
+
+        # Filter years that are divisible by 5 and month is January
+        ticks_dates = x_date[(x_date.year % 5 == 0) & (x_date.month == 1)]
+
+        # get the index numbers 
+        idx_dates = np.where(np.isin(x_date, ticks_dates))[0].tolist()
+        fig2.update_xaxes(tickmode='array', 
+                        tickvals=[i*scale_chg for i in idx_dates], 
+                        ticktext=[i[:4] for i in ticks_dates.strftime('%Y-%m-%d')])
+
+        return fig1, fig2
 
     # Design Shortcut
     def design_texts(self, texts: str, type_: str = "P"):
@@ -945,6 +1340,7 @@ class Design:
             for title, content in zip(titles, contents)
         ],
         variant='filled',
+        style={'margin': '30px 20px'}
         )
         
         return elements
@@ -1064,23 +1460,24 @@ class Design:
 
         return dbc.Row(elements, style={'margin': '15px auto'})
 
-    def design_ha_figs(self, figs: list, legends: bool = False, comments: list = []):
-        # set id number
-        self.design_ha_figs_id += 1
+    def design_ha_figs(self, figs: list, model: str = '', legends: bool = False, comments: list = [], type_='P'):
         # define return
         elements = []
-        # define comments
-        if not comments:
-            c_display = 'None'
-            # create empty list
-            comments = [''] * len(figs)
-        else:
-            c_display = 'block'
+        # update group id number
+        self.design_ha_figs_id += 1
+        # define base (default) fig id
+        base_fig_id = {'g_id': self.design_ha_figs_id}
+        # define default display format for comment
+        c_display = 'block'
+
+        # if model name is assigned
+        if model:
+            base_fig_id = {'model': model, 'g_id': self.design_ha_figs_id}
         
         # commom legends
         if legends:
-            # funtionality id
-            func_id = 'design_ha_figs_'
+            # decide base id pf each figure
+            base_fig_id = {'func': 'ha_figs_', 'obj': 'fig', 'g_id': self.design_ha_figs_id}
             # legend options (assume every figure has same legend)
             options = [getattr(fig, 'legendgroup', str(i)) for i, fig in enumerate(figs[0].data)]
             # color
@@ -1088,7 +1485,7 @@ class Design:
 
             elements += [
                 dmc.ChipGroup(
-                    id={'func': func_id, 'obj': 'legend', 'id': self.design_ha_figs_id},
+                    id={'func': 'ha_figs_', 'obj': 'legend', 'g_id': self.design_ha_figs_id},
                     children=[
                         dmc.Chip(
                             children=str(opt),
@@ -1103,9 +1500,13 @@ class Design:
                 )
             ]
 
-        else:
-            func_id = 'design_ha_figs'
+        # define comments
+        if not comments:
+            c_display = 'None'
+            # create empty list
+            comments = [''] * len(figs)
 
+        # add main elements
         elements += [
             dbc.Row(
                 [dbc.Col(
@@ -1113,11 +1514,11 @@ class Design:
                         [
                             dbc.CardBody([
                                 dcc.Graph(
-                                    id={'func': func_id, 'obj': 'fig', 'fig_id': str(i), 'id': self.design_ha_figs_id},
+                                    id={**base_fig_id, 'id': str(i)},
                                     figure=fig,
                                 ),
                                 dbc.CardFooter(
-                                    comments[i], 
+                                    self.design_texts(texts=comments[i], type_=type_), 
                                     style={'display': c_display, 'padding': '20px'}
                                 ),
                             ], style={'margin': '5px', 'maxWidth': 'min-content'}),
@@ -1134,11 +1535,12 @@ class Design:
         return dbc.Row(elements, style={'margin': '15px auto'})
 
     def callbacks(self):
-        # for horizontal plot()
+
+        # Matching legend in horizontal (ha) figure plots
         @self.app.callback(
-            output=Output({'func': 'design_ha_figs_', 'obj': 'fig', 'fig_id': ALL, 'id': MATCH}, 'figure'),
-            inputs=Input({'func': 'design_ha_figs_', 'obj': 'legend', 'id': MATCH}, 'value'),
-            state=State({'func': 'design_ha_figs_', 'obj': 'fig', 'fig_id': ALL, 'id': MATCH}, 'figure'),
+            output=Output({'func': 'ha_figs_', 'obj': 'fig', 'g_id': MATCH, 'id': ALL}, 'figure'),
+            inputs=Input({'func': 'ha_figs_', 'obj': 'legend', 'g_id': MATCH}, 'value'),
+            state=State({'func': 'ha_figs_', 'obj': 'fig', 'g_id': MATCH, 'id': ALL}, 'figure'),
             prevent_initial_call=True
         )
         def update_visibility(value, fig):
@@ -1163,7 +1565,7 @@ class Design:
             else:
                 return no_update
 
-        # confirmation to a certain action
+        # Confirmation to a certain action
         @self.app.callback(
             Output({'obj': 'confirmation', 'action': MATCH}, 'displayed'),
             [Input({'obj': 'finalize-button', 'action': MATCH}, 'n_clicks')],
@@ -1174,11 +1576,11 @@ class Design:
                 return True
             return False
 
-        # finalizing model dataset creation
+        # Finalizing model dataset creation
         @self.app.callback(
-            [Output({'obj':'output-table', 'action': MATCH}, 'data'),
-             Output({'obj':'output-table', 'action': MATCH}, 'columns')],
-            [Input({'obj':'confirmation', 'action': MATCH}, 'submit_n_clicks')],
+            [Output({'obj':'output-table', 'action': 'model-dataset'}, 'data'),
+             Output({'obj':'output-table', 'action': 'model-dataset'}, 'columns')],
+            [Input({'obj':'confirmation', 'action': 'model-dataset'}, 'submit_n_clicks')],
             [State('independent-variable-dropdown', 'value'),
             State('target-variable-dropdown', 'value'),
             State('moving-averages-dropdown', 'value'),
@@ -1190,7 +1592,7 @@ class Design:
         def model_data_creation(submit_n_clicks, independent_vars, target_var, ma, fp, init_data, poly_degree):
             if submit_n_clicks:
                 if not all([independent_vars, target_var, ma, fp, init_data, poly_degree]):
-                    return html.Div('Please make sure all inputs are selected!', style={'color': 'red'})
+                    return no_update
 
                 # update self.PA
                 self.new_df = self.PA.create_data(
@@ -1203,3 +1605,63 @@ class Design:
                 return data, cols
             
 
+        # Launch the customized model
+        """@self.app.callback(
+            Output('model-results-tab', 'children'),
+            Input({'obj':'confirmation', 'action': 'model'}, 'submit_n_clicks'),
+            #[
+            #    State(),
+            #    State(),
+            #]
+            prevent_initial_call=True
+        )
+        def custom_model_result(submit_n_clicks):
+            if submit_n_clicks:
+                # make sure all state variables are not blank
+                if not all([...]): # all
+                    return no_update
+                # use Patch
+                p = Patch()
+                # list for new results
+                new_results = []
+                # train model
+                
+
+                # append all results
+                p.append(new_results)
+
+                return p
+        """
+
+        # Update Detailed Performance
+        @self.app.callback(
+            output=dict(
+                line=Output({'model': MATCH, 'g_id': ALL, 'id': '0'}, 'figure'),
+                dist=Output({'model': MATCH, 'g_id': ALL, 'id': '1'}, 'figure'),
+            ),
+            inputs=dict(
+                clicks=Input({'obj': 'finalize-button', 'action': 'plot-detail-perf', 'model': MATCH}, 'n_clicks')
+            ),
+            state=dict(
+                ma=State({'model': MATCH, 'obj': 'ma'}, 'value'),
+                fp=State({'model': MATCH, 'obj': 'fp'}, 'value'),
+                sc=State({'model': MATCH, 'obj': 'sc'}, 'value'),
+            ),
+            prevent_initial_call=True
+        )
+        def update_detail_perf(clicks, ma, fp, sc):
+            print(clicks, ma, fp, sc)
+            print(ctx.triggered_prop_ids)
+            print(ctx.triggered_id)
+            """
+            1 1 2 mean
+            {'{"action":"plot-detail-perf","model":"LinR","obj":"finalize-button"}.n_clicks': {'action': 'plot-detail-perf', 'model': 'LinR', 'obj': 'finalize-button'}}     
+            {'action': 'plot-detail-perf', 'model': 'LinR', 'obj': 'finalize-button'}
+            """
+            #if n_clicks > 0:
+                # generate new figure
+                #line_, dist_ = self.detail_perf()
+
+            return dict(line=no_update, dist=no_update)
+
+            #return dict(line=line_, dist=dist_)
