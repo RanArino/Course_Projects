@@ -113,7 +113,7 @@ class Design:
         # assign original data frame
         self.origin = df
         # initialize id
-        self.design_ha_figs_id = 0
+        self.design_ha_viz_id = 0
 
         # Data Process
         #  for preprocessing
@@ -166,7 +166,7 @@ class Design:
                 data_dict = json.load(file)
                 for k2, v2 in data_dict.items():
                     # Deserialize DataFrame
-                    if k2 == 'pred_df':  # 'pred_df' is the key for the DataFrame
+                    if k2 == 'pred_df' or k2 == 'metrics_df':
                         self.fig_data[k1][k2] = pd.read_json(v2)
 
                     # Deserialize Plotly Figures
@@ -288,7 +288,6 @@ class Design:
             html.H3("Dataset Information", style={'textAlign': 'center', 'margin': '30px auto'}),
             # Table
             dash_table.DataTable(
-                id='table',
                 columns=[
                     {"name": i, "id": i} if i != 'Data Source' else {"name": i, "id": i, "type": "text", "presentation": "markdown"} for i in df.columns
                 ],
@@ -470,7 +469,7 @@ class Design:
         elements += [
             dbc.Row([
                 html.H4("Histogram / Skewness", style={'color': '#d9d9d9', 'margin': '20px 0'}),
-                self.design_ha_figs(figs=figs2)
+                self.design_ha_viz(viz=figs2)
             ]),
             dbc.Row([
                 dbc.Col([
@@ -529,11 +528,11 @@ class Design:
         # define tabs
         tab_elements_2 = [
             [
-                self.design_ha_figs(figs=figs3_1),
+                self.design_ha_viz(viz=figs3_1),
                 self.design_observe(comments_3_1, type_='Ul', title='Feature Relationships')
             ],
             [
-                self.design_ha_figs(figs=figs3_2, legends=True),
+                self.design_ha_viz(viz=figs3_2, legends=True),
                 self.design_observe(comments_3_2, type_='Ul', title='Feature Relationships')
             ]
         ]
@@ -584,7 +583,7 @@ class Design:
         elements += [
             dbc.Row([
                 html.H4("Trends of Economic data", style={'color': '#d9d9d9', 'margin': '20px 0'}),
-                self.design_ha_figs(figs=figs4, comments=comments_4),
+                self.design_ha_viz(viz=figs4, comments=comments_4),
             ]),
             DASH_LINE
         ]
@@ -621,7 +620,7 @@ class Design:
         # add element
         elements += [
             html.H4("Stratified Histogram", style={'color': '#d9d9d9', 'margin': '20px 0'}),
-            self.design_ha_figs(figs=figs5, legends=True),
+            self.design_ha_viz(viz=figs5, legends=True),
             self.design_observe(comments_5, type_='Ul'),
             DASH_LINE
         ]
@@ -926,32 +925,35 @@ class Design:
 
         # Model Results (Defaults + Customized)
         # tab titles
-        titles = ['Linear Regression', 'Logistic Regression', 'Classification and Regression Tree (CART)']
+        titles = ['Linear', 'Logistic', 'CART']
         
         # Linear Regression
         #  comments / observations
         texts_lin_kpi = """
-            example
-            example
+            Different color shows the three types of moving averages, and each data point is taken averages from five different scopes.
+            Longer moving averages improve the regression performance due to mitigating fluctuation.
+            Longer the predicted months of data are, the poorer the predictive performance.
         """
         texts_lin_be = """
-            example
-            example
+            Assigning the '0' coefficient for each independent variable one by one, then recalculating metrics. 
+            UNEMP and LRIR might have a greater impact on the model performance due to relatively larger RMSE and R2 changes.
+            However, no significant differences between all economic indicators.
         """
         texts_lin_coef = """
-            example
-            example
+            Coefficient of each independent variable at each incremental time step; average of all models.
+            Equivalent to the impact of each economic indicator to SP500 due to the standardization.
+            Provide the insight of which economic indicators are likely to cause larger volatilities in SP500.
         """
         #  elements for linear 
         linear_elements = [
             html.H4("Regression Metrics / KPIs", style={'color': '#d9d9d9', 'margin': '20px 0'}),
             # regression KPIs
-            self.design_ha_figs(figs=[self.fig_data['LinR'][key] for key in ['RMSE', 'SE', 'R2', 'adj_R2']], legends=True),
+            self.design_ha_viz(viz=[self.fig_data['LinR'][key] for key in ['RMSE', 'SE', 'R2', 'adj_R2']], legends=True),
             self.design_observe(texts=texts_lin_kpi, type_='Ul', title='Observations: '),
             S_DASH_LINE,
             html.H4("Backward Elimination & Development of Coefficients", style={'color': '#d9d9d9', 'margin': '20px 0'}),
-            self.design_ha_figs(
-                figs=[self.fig_data['LinR']['BE'], self.fig_data['LinR']['Coef']], 
+            self.design_ha_viz(
+                viz=[self.fig_data['LinR']['BE'], self.fig_data['LinR']['Coef']], 
                 comments=[texts_lin_be, texts_lin_coef], 
                 type_='Ul'
             ),
@@ -966,7 +968,7 @@ class Design:
                         dmc.Select(
                             id={'model': 'LinR_0', 'obj': 'ma'},
                             placeholder="Select option",
-                            data=[{'label': f'{i} Month(s)', 'value': str(i)} for i in range(1, 7)], 
+                            data=[{'label': f'{i} Month(s)', 'value': str(i)} for i in range(1, 4)], 
                             value='1',  # Default value
                             required=True,
                             style={'backgroundColor': '#333', 'color': 'white', 'borderColor': '#555'}),
@@ -1003,8 +1005,8 @@ class Design:
                 n_clicks=0, 
                 style=BUTTON_STYLE
             ),   
-            self.design_ha_figs(
-                figs=[*self.detail_perf('LinR', self.fig_data['LinR']['pred_df'], 1)],
+            self.design_ha_viz(
+                viz=[*self.detail_perf('LinR', self.fig_data['LinR']['pred_df'], 1)],
                 model='LinR_0'
             )
         ]
@@ -1012,26 +1014,32 @@ class Design:
         # Logistic Regression
         #  comments / observations
         texts_log_kpi = """
-            example
-            example
+            The larger moving average increases the model performance, but the forecasts in longer months ahead decrease its performance.
+            Could be conservative when the model forecasts the rise in the SP500 compared to the same month in the previous year. (label "1") 
+            Although measures are relatively good, the model itself may be useless when SP500 has already achieved a higher performance due to predicting rise or fall compared to the previous year.
         """
         texts_log_be = """
-            example
-            example
+            By setting "0" coefficient for LRIR, the classification performances decreased for both Accuracy and F1 score, so LRIR could be significant impact on SP500 overall.
+            CSENT might also have larger impact on SP500; however, the majority of data points are around zero level, no significant differences.
         """
         texts_log_coef = """
-            example
-            example
+            Similar trends in the results of multiple linear regression; only IPM is in slightly negative impact zone.
+            There have been large reversals in both HOUSE and LRIR over the recent years from the negative to positive impacts on SP500.
+            Declines in the importance of UNEMP as a positive impact on SP500 in the recent months.
         """
         #  elements for logistic regression
         logit_elements = [
             html.H4("Classification Metrics / KPIs", style={'color': '#d9d9d9', 'margin': '20px 0'}),
             # classification KPIs
-            self.design_ha_figs(figs=[self.fig_data['LogR'][key] for key in ['Accuracy', 'Precision', 'Recall', 'F1_Score', 'AUC']], legends=True),
+            self.design_ha_viz(
+                viz=[self.fig_data['LogR'][key] for key in ['Accuracy', 'Precision', 'Recall', 'F1_Score', 'AUC']], 
+                legends=True
+            ),
+            self.design_observe(texts=texts_log_kpi, type_='Ul', title='Observations: '),
             S_DASH_LINE,
             html.H4("Backward Elimination & Development of Coefficients", style={'color': '#d9d9d9', 'margin': '20px 0'}),
-            self.design_ha_figs(
-                figs=[self.fig_data['LogR']['BE'], self.fig_data['LogR']['Coef']], 
+            self.design_ha_viz(
+                viz=[self.fig_data['LogR']['BE'], self.fig_data['LogR']['Coef']], 
                 comments=[texts_log_be, texts_log_coef],
                 type_='Ul'
             )
@@ -1040,21 +1048,26 @@ class Design:
         # CART
         #  comments / observations
         texts_cart_kpi = """
-            example
-            example
+            Deteriorate all regression metrics comparing with the outcome in the multiple linear regression.
+            One of possible reasons: unable to adjust the model parameters by focusing on the recent data, like linear and logistic regression.
         """
         texts_cart_coef = """
-            example
-            example
+            Showing feature importance on tree diagram; how effectively the threshold of each independent variable separates class labels.
+            So, if either one of the class labels is dominant in two groups or nodes after splitting, its independent variable could be more important.
+            Based on this theory, IPM shows the largest predictive performance for SP500 by defining a specific threshold.
         """
         cart_elements = [
             html.H4("Regression Metrics / KPIs", style={'color': '#d9d9d9', 'margin': '20px 0'}),
             # regression KPIs
-            self.design_ha_figs(figs=[self.fig_data['CART'][key] for key in ['RMSE', 'SE', 'R2', 'adj_R2']], legends=True),
+            self.design_ha_viz(
+                viz=[self.fig_data['CART'][key] for key in ['RMSE', 'SE', 'R2', 'adj_R2']], 
+                legends=True
+            ),
+            self.design_observe(texts_cart_kpi, type_='Ul', title='Observations: '),
             S_DASH_LINE,
             html.H4("Development of Coefficients", style={'color': '#d9d9d9', 'margin': '20px 0'}),
-            self.design_ha_figs(
-                figs=[self.fig_data['CART']['Coef']], 
+            self.design_ha_viz(
+                viz=[self.fig_data['CART']['Coef']], 
                 comments=[texts_cart_coef],
                 type_='Ul'
             ),
@@ -1068,7 +1081,7 @@ class Design:
                         dmc.Select(
                             id={'model': 'CART_0', 'obj': 'ma'},
                             placeholder="Select option",
-                            data=[{'label': f'{i} Month(s)', 'value': str(i)} for i in range(1, 7)], 
+                            data=[{'label': f'{i} Month(s)', 'value': str(i)} for i in range(1, 4)], 
                             value='1',  # Default value
                             required=True,
                             style={'backgroundColor': '#333', 'color': 'white', 'borderColor': '#555'}),
@@ -1103,8 +1116,8 @@ class Design:
                 n_clicks=0, 
                 style=BUTTON_STYLE
             ),   
-            self.design_ha_figs(
-                figs=[*self.detail_perf('CART', self.fig_data['CART']['pred_df'], 1)],
+            self.design_ha_viz(
+                viz=[*self.detail_perf('CART', self.fig_data['CART']['pred_df'], 1)],
                 model='CART_0'
             )
         ]
@@ -1128,16 +1141,150 @@ class Design:
 
         return dbc.Container(elements)
 
-
-
     def model_finalize(self):
-        pass
+        #titles = ['Regression Metrics', 'Comparing Actual & Predicted Values', 'Distribution of Predicted Error']
+        # comment for perfornance
+        comments_perf = [
+            'The RMSE (7.07-9.57%) and the Adjusted R square (0.62-0.77) could be acceptable considering the volatile target values; however, they are still insufficient scores as the sophisticated predictive model.',
+            'Although large divergences occur during huge volatilities (getting wider the bands), the model can forecast the S&P500 growth on the stable market around two months ahead (technically 30-40 days ahead, due to the time lag of releasing economic data).',
+            'The distribution of the predicted errors would meet normality and randomness; however, it does not meet the constancy at several short periods of tim due to the volatile events in the market.'
+        ]
+        # comments for considerations
+        comments_consider = [
+            """
+                Logistic model forecasts whether "SP500" increases or decreases from the same month of the previous year, rather than the current level.
+                Hence, the model may not povide investors and traders with a valuable insight for making investment decisions on the S&P500 index.
+            """,
+            """
+                CART model no longer have the predictability toward "SP500" due to worse regression performance.
+                It is necessary to adjust the parameters by focusing on the recent relationships between economic data and S&P500 index.
+            """
+        ]
+
+        # create three viz
+        metrics_df = self.fig_data['LinBest']['metrics_df']
+        fig1, fig2 = self.detail_perf(
+            model='LinR', 
+            pred_df=self.fig_data['LinBest']['pred_df'], 
+            ma=1
+        )
+        viz_lst = [metrics_df, fig1, fig2]
+
+        elements = [
+            html.H3('Final Model', style={'textAlign': 'center', 'margin': '30px auto'}),
+            html.H4("Choice of Models and Parameters", style={'margin': '30px 5px'}),
+            self.design_cards_equal(
+                titles=['Model', 'Future Predition; [1, 2]', 'Scopes; [1, 3]'],
+                contents=["(Ensemble) Linear Regression ",
+                          "Forecasting SP500 within only one and two months ahead.",
+                          "Updating parameters by one recent data and the recent three months of data."
+                          ]
+            ),
+            S_DASH_LINE,
+            html.H4("Performance of the Final Model", style={'margin': '30px 5px'}),
+            self.design_ha_viz(
+                viz=viz_lst, 
+                comments=comments_perf,
+                attr=[{'style_table': {'width': '600px'}}, {}, {}]
+            ),
+            S_DASH_LINE,
+            html.H4("Considerations", style={'margin': '30px 5px'}),
+            self.design_cards_equal(
+                titles=['Unuseful Logistic Regression', 'Less Predictive CART'],
+                contents=comments_consider,
+                type_='Ul'
+            ),
+            DASH_LINE
+        ]
+
+        return dbc.Container(elements)
     
     def conclution(self):
-        pass
+        elements = [
+            html.H3('Conclusions', style={'textAlign': 'center', 'margin': '30px auto'}),
+        ]
+        # questions
+        questions = [
+            'Model Performance on Different Condition',
+            'Most Significant Economic Indicator(s)',
+            'Accuracy from the Different Predicteve Models'
+        ]
+        # answers for research questions
+        answers = [
+            """
+                Target values with longer moving averages improves the predictive performance toward all models.
+                Fewer months of the recent data (smaller scopes) improves predictive performance by adaptively learning the data at each incremental step.
+                Predicting values further into the future (three months or more) deteriorates model performance.
+            """,
+
+            """
+                For the linear and logistic regressions and focusing on the recent 12 months, the rise in unemployment rate (UNEMP) has been likely to affect the significant impact on the rise in the YoY growth of the S&P500.
+                For the CART model, and focusing on the recent 10 years, the industrial production in manufacturing (IPM) has the greatest contribution to predict the S&P500 growth, as the highest feature importance.
+            """,
+
+            """
+                Linear regression: RMSE (6.37–17.16), SE (6.41–17.29), R2 (-0.16–0.82), Adj-R2 (-0.18–0.82)
+                Logistic regression: Accuracy (0.69–0.92), Precision (0.84–0.96), Recall (0.74–0.93), F1 score (0.79–0.95), Area Under Curve(0.6-0.9)
+                Classification and regression tree: RMSE (13.39–17.78), SE (13.47–17.89), R2 (-0.27–0.24), Adj-R2 (-0.28–0.23)
+            """,
+        ]
+        # add elements
+        elements += [
+            self.design_observe(texts=answer, type_='Ul', title=question, styles={'margin': '50px 100px'})
+            for answer, question in zip(answers, questions)
+        ]
+
+        # Last remarks
+        lst_remark = """
+            The project could conclude that the most recently released macroeconomic indicators no longer predict the YoY growth of the S&P500, especially three or more months ahead.
+            However, beside from the primary targets of this project, the coefficients of independent variables over time provided crucial insights.
+            Those line plots may provide investors and traders with what economic data should be focused on at certain time.
+        """
+        # add elements
+        elements += [
+            dbc.Card(
+                [
+                    dbc.CardHeader(html.H5('How Useful is the Project in the Real World?', 
+                                           className='card-title', 
+                                           style={'color': 'F9F9F9', 'margin': '5px 0', 'fontSize': 21})),
+                    dbc.CardBody(
+                        [self.design_texts(lst_remark, 'Ul')], 
+                        style={'height': '100%', 'fontSize': 17})
+                ], 
+                style={'height': '100%', 'margin': '50px 80px'}
+            ),
+            DASH_LINE
+        ]
+
+        return dbc.Container(elements)
 
     def further_approach(self):
-        pass
+        elements = [
+             html.H3('Possible Approaches for Future Projects', style={'textAlign': 'center', 'margin': '30px auto'}),
+        ]
+        titles = ['More specific incremental learnings', 
+                  'Switching the models adaptively']
+        comments = [
+            """
+                Different release dates for each macroeconomic indicator.
+                Need to update parameter one by one once a data is released.
+                Provide more up-to-date model predictions.
+            """,
+            """
+                Assessing degree of market volatility by several data or statistics.
+                Switching the model once reaching certain threshods.
+                Likely to increase performance by model aggregations or combinations.
+            """
+        ]
+        elements += [
+            self.design_cards_size(
+                titles=titles,
+                texts=comments,
+                type_='Ul'
+            )
+        ]
+
+        return dbc.Container(elements)
 
     # Plotly Figure
     def detail_perf(self, model: str, pred_df: pd.DataFrame, ma: int, fp: int|str = 'mean', sc: int|str = 'mean'):
@@ -1294,7 +1441,6 @@ class Design:
                         ticktext=[i[:4] for i in ticks_dates.strftime('%Y-%m-%d')])
 
         return fig1, fig2
-
     # Design Shortcut
     def design_texts(self, texts: str, type_: str = "P"):
         # define style
@@ -1311,18 +1457,21 @@ class Design:
         else:
             return html.P(texts, style=content_style)
 
-    def design_observe(self, texts: str, type_: str = 'P', title: str = 'Graph Interpretation'):
-        div = html.Div([
-            html.H5(title, style={'color': '#d9d9d9', 'padding': '0 0 10px'}),
-            self.design_texts(texts, type_),
-        ], style={
+    def design_observe(self, texts: str, type_: str = 'P', title: str = 'Graph Interpretation', styles: dict = {}):
+        base_styles = {
             'padding': '20px',
             'border': '1px solid #444',
             'borderRadius': '5px',
             'backgroundColor': '#2c2c2c',
             'margin': '10px',
             'lineheight': 2
-        })
+        }
+        
+        div = html.Div([
+            html.H5(title, style={'color': '#d9d9d9', 'padding': '0 0 10px'}),
+            self.design_texts(texts, type_),
+        ], 
+        style={**base_styles, **styles})
 
         return div
 
@@ -1472,16 +1621,21 @@ class Design:
 
         return dbc.Row(elements, style={'margin': '15px auto'})
 
-    def design_ha_figs(self, figs: list, model: str = '', legends: bool = False, comments: list = [], type_='P'):
+    def design_ha_viz(self, viz: list, model: str = '', legends: bool = False, comments: list = [], type_='P', attr: list[dict] = []):
+        """
+        Aligning visualizations (figs or tables) horizontally
+        - Requirement len(viz) == len(comments)
+        - Assigning "model" sets up unique id for each figure.
+        - Switching "legend" turns on shareable legends on the top
+        - "attr" is additional attributes
+        """
         # define return
         elements = []
         # update group id number
-        self.design_ha_figs_id += 1
+        self.design_ha_viz_id += 1
         # define base (default) fig id
-        base_fig_id = {'g_id': self.design_ha_figs_id}
-        # define default display format for comment
-        c_display = 'block'
-
+        base_fig_id = {'g_id': self.design_ha_viz_id}
+     
         # if model name is assigned
         if model:
             base_fig_id = {'model': model}
@@ -1489,15 +1643,16 @@ class Design:
         # commom legends
         if legends:
             # decide base id pf each figure
-            base_fig_id = {'func': 'ha_figs_', 'obj': 'fig', 'g_id': self.design_ha_figs_id}
+            base_fig_id = {'func': 'ha_viz_', 'obj': 'fig', 'g_id': self.design_ha_viz_id}
             # legend options (assume every figure has same legend)
-            options = [getattr(fig, 'legendgroup', str(i)) for i, fig in enumerate(figs[0].data)]
+            fig_data = [v for v in viz if getattr(v, 'data', False)]
+            options = [getattr(fig, 'legendgroup', str(i)) for i, fig in enumerate(fig_data[0].data)]
             # color
-            colors = [FIG_COLOR(fig) for fig in figs[0].data]
+            colors = [FIG_COLOR(fig) for fig in fig_data[0].data]
 
             elements += [
                 dmc.ChipGroup(
-                    id={'func': 'ha_figs_', 'obj': 'legend', 'g_id': self.design_ha_figs_id},
+                    id={'func': 'ha_viz_', 'obj': 'legend', 'g_id': self.design_ha_viz_id},
                     children=[
                         dmc.Chip(
                             children=str(opt),
@@ -1512,11 +1667,12 @@ class Design:
                 )
             ]
 
-        # define comments
-        if not comments:
-            c_display = 'None'
-            # create empty list
-            comments = [''] * len(figs)
+        # modify variable by comments
+        c_display = 'block' if comments else 'None'
+        comments_dict = {i: comments[i] if i < len(comments) else "" for i in range(len(viz))}
+    
+        # modify additional attributes by attr
+        attr_dict = {i: attr[i] if i < len(attr) else {} for i in range(len(viz))}
 
         # add main elements
         elements += [
@@ -1525,21 +1681,33 @@ class Design:
                     dbc.Card(
                         [
                             dbc.CardBody([
+                                # add figure
                                 dcc.Graph(
                                     id={**base_fig_id, 'id': str(i)},
-                                    figure=fig,
-                                ),
+                                    figure=viz[i],
+                                    **attr_dict.get(i, {})
+                                ) if type(viz[i]) == go.Figure else None,
+
+                                # add table
+                                dash_table.DataTable(
+                                    data=viz[i].head().round(2).to_dict('records'),
+                                    columns=[{'name': i, 'id': i} for i in viz[i].columns],
+                                    **{**TABLE_STYLE, **attr_dict.get(i, {})},
+                                ) if type(viz[i]) == pd.DataFrame else None,
+
+                                # add comments
                                 dbc.CardFooter(
-                                    self.design_texts(texts=comments[i], type_=type_), 
+                                    self.design_texts(texts=comments_dict.get(i, ""), type_=type_), 
                                     style={'display': c_display, 'padding': '20px'}
                                 ),
-                            ], style={'margin': '5px', 'maxWidth': 'min-content'}),
+                            ], style={'margin': '5px', 'maxWidth': 'min-content', 
+                                      'display': 'inline-flex', 'flexDirection': 'column', 'justifyContent': 'center'}),
                         ],
                         outline=True,
                     ),
                     className='flex-nowrap',
                     style={'display': 'inline-flex', 'minWidth': 'fit-content', 'margin': '10px'}
-                ) for i, fig in enumerate(figs)],
+                ) for i in range(len(viz))],
                 style={'display': 'inline-flex', 'flex-wrap': 'nowrap', 'overflowX': 'auto', 'width': '100%', 'gap': '10px'},
             )
         ]
@@ -1550,9 +1718,9 @@ class Design:
 
         # Matching legend in horizontal (ha) figure plots
         @self.app.callback(
-            output=Output({'func': 'ha_figs_', 'obj': 'fig', 'g_id': MATCH, 'id': ALL}, 'figure'),
-            inputs=Input({'func': 'ha_figs_', 'obj': 'legend', 'g_id': MATCH}, 'value'),
-            state=State({'func': 'ha_figs_', 'obj': 'fig', 'g_id': MATCH, 'id': ALL}, 'figure'),
+            output=Output({'func': 'ha_viz_', 'obj': 'fig', 'g_id': MATCH, 'id': ALL}, 'figure'),
+            inputs=Input({'func': 'ha_viz_', 'obj': 'legend', 'g_id': MATCH}, 'value'),
+            state=State({'func': 'ha_viz_', 'obj': 'fig', 'g_id': MATCH, 'id': ALL}, 'figure'),
             prevent_initial_call=True
         )
         def update_visibility(value, fig):
