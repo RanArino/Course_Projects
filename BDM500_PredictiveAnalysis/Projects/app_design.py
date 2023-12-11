@@ -369,7 +369,7 @@ class Design:
         ]
         contents = [
             'Generate a categorical value; whether the S&P500 index rises("1") or falls("0") compared to the same month of the previous year.',
-            'Converting to the Year-over-Year (YoY) Percent Growth, which is subject to CPI, CSENT, IMP, HOUSE, and SP500.',
+            'Converting to the Year-over-Year (YoY) Percent Growth, which is subject to CPI, CSENT, IPM, HOUSE, and SP500.',
         ]
 
         elements += [
@@ -427,7 +427,7 @@ class Design:
                 html.H4("Correlation Matrix & Feature Selection", style={'color': '#d9d9d9', 'margin': '20px 0'}),
                 self.design_tabs(tab_titles, tab_elements, margin='0 0 20px'),
                 dbc.Row([
-                    dbc.Col(self.design_observe(comments1_1, type_='Ul', title='Onservations'), width=6),
+                    dbc.Col(self.design_observe(comments1_1, type_='Ul', title='Observations'), width=6),
                     dbc.Col(self.design_observe(comments1_2, type_='Ul', title='New Derived Data'), width=6),
                 ])
             ]),
@@ -498,7 +498,7 @@ class Design:
             When CSENT or IPM declined by over 10% or 20% from a year before, respectively, SP500 is likely to be below the level of the previous year.
             When HOUSE is above 25% regardless of what kinds of economic indicators as the other axis, SP500 is likely to rise from the previous year.
             When the IPM and HOUSE decline simultaneously, SP500 will be affected negative impact. 
-            Hence, three economic indicators, CSENT, IMP, and HOUSE, may have a significant impact on whether the SP500 rises or falls on YoY growth base.
+            Hence, three economic indicators, CSENT, IPM, and HOUSE, may have a significant impact on whether the SP500 rises or falls on YoY growth base.
         """
         # figure style
         fig3_styles = dict(
