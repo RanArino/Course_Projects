@@ -11,6 +11,7 @@ from itertools import combinations
 
 import os
 import json
+import time
 
 from Functions import PredictiveAnalysis
 
@@ -780,8 +781,7 @@ class Design:
                         html.Div([
                             html.Label('Select Moving Averages:', style={'color': '#d9d9d9', 'paddingBottom': '10px'}),
                             dmc.MultiSelect(
-                                id='ma-select',
-                                data=[{'label': f'{i} Month(s)', 'value': i} for i in range(1, 7)],
+                                id='ma-select',                                data=[{'label': f'{i} Month(s)', 'value': i} for i in range(1, 4)],
                                 value=[1, 2, 3],  # Default values
                                 placeholder="Select Moving Averages",
                                 required=True,
@@ -942,7 +942,7 @@ class Design:
                 ]), style={'minWidth': 'fit-content'}),
                 dbc.Col(html.Div([
                     html.Label('Alpha: '),
-                    dmc.NumberInput(min=0, max=1, step=0.001, value=0.01, precision=3, required=True,
+                    dmc.NumberInput(min=0, max=1, step=0.001, value=0.1, precision=3, required=True,
                                    id={'action': 'new-model-params', 'obj': 'alpha'}, style={'width':'fit-content'})
                 ]), style={'minWidth': 'fit-content'}),
                 dbc.Col(html.Div([
@@ -1118,9 +1118,21 @@ class Design:
         # Aggregate all model elements
         elements += [
             html.H4('Visualizations of Each Model', style={'color': '#d9d9d9', 'margin': '40px 10px'}),
+            # create dummy section to avoid callback error
+            html.Div(id={'obj': 'model-train-loader', 'action': 'new-model'}, 
+                    children=[
+                        dmc.Loader(
+                            color="blue", size="xl", variant="dots",
+                            style={'width': '75px'}
+                        ),
+                        html.Label('Training the New Model', 
+                                   style={'margin': '25px auto 50px', 'fontSize': '18px', 'color': '#8dbfeb'}),
+                    ],
+                    style={'display': 'None', 'width': '100%', 'flexDirection': 'column', 'justifyContent': 'center', 'alignItems': 'center'}
+                ),
             # summary of each model result
             dbc.Tabs(
-                id = 'model-results-tab',
+                id = {'obj': 'model-results-tab', 'action': 'new-model'},
                 children=[
                     dbc.Tab(
                         label=title, 
@@ -1710,7 +1722,7 @@ class Design:
 
         return dbc.Row(elements, style={'margin': '15px auto'})
 
-    def design_def_perf_select(self, model: str):
+    def design_def_perf_select(self, model: str, ma_data: list = [1,2,3], fp_data: list = [1,2,3,4,5,6], sc_data: list = [1,3,6,9,12]):
         # define model id
         m_id = model + f'_M{self.num_new_model}'
 
@@ -1721,8 +1733,8 @@ class Design:
                 dmc.Select(
                     id={'model': m_id, 'obj': 'ma'},
                     placeholder="Select option",
-                    data=[{'label': f'{i} Month(s)', 'value': i} for i in range(1, 4)], 
-                    value=1,  # Default value
+                    data=[{'label': f'{i} Month(s)', 'value': i} for i in ma_data], 
+                    value=ma_data[0],  # Default value
                     required=True,
                     style={'backgroundColor': '#333', 'color': 'white', 'borderColor': '#555'}),
             ]),
@@ -1732,7 +1744,7 @@ class Design:
                 dmc.Select(
                     id={'model': m_id, 'obj': 'fp'},
                     placeholder="Select option",
-                    data=[{'label': 'Mean', 'value': 'mean'}] + [{'label': f'{i} Month(s)', 'value': i} for i in range(1, 7)], 
+                    data=[{'label': 'Mean', 'value': 'mean'}] + [{'label': f'{i} Month(s)', 'value': i} for i in fp_data], 
                     value="mean",  # Default value
                     required=True,
                     style={'backgroundColor': '#333', 'color': 'white', 'borderColor': '#555'},
@@ -1747,7 +1759,7 @@ class Design:
                     dmc.Select(
                         id={'model': m_id, 'obj': 'sc'},
                         placeholder="Select option",
-                        data=[{'label': 'Mean', 'value': 'mean'}, {'label': f'{1} Month(s)', 'value': 1}] + [{'label': f'{i} Month(s)', 'value': i} for i in range(3, 13, 3)],  
+                        data=[{'label': 'Mean', 'value': 'mean'}] + [{'label': f'{i} Month(s)', 'value': i} for i in sc_data],
                         value="mean",  # Default value
                         required=True,
                         style={'backgroundColor': '#333', 'color': 'white', 'borderColor': '#555'}
@@ -1774,7 +1786,6 @@ class Design:
 
         return self.design_cards_size(contents=elements, card_width=[4,4,4])
         
-
 
     def callbacks(self):
 
@@ -1815,8 +1826,9 @@ class Design:
         )
         def display_confirm_dialog(n_clicks):
             if n_clicks > 0:
-                return True
-            return False
+                    return True
+            else:
+                return False
 
         # Finalizing model dataset creation
         @self.app.callback(
@@ -1845,61 +1857,92 @@ class Design:
                 cols = [{'name': i, 'id': i} for i in self.new_df.columns]
                 
                 return data, cols
-            
+        
+        # showing Loader
+        @self.app.callback(
+            Output({'obj': 'model-train-loader', 'action': 'new-model'}, 'style'),
+            Input({'obj':'confirmation', 'action': 'new-model'}, 'submit_n_clicks'),
+            State({'action': 'new-model-params', 'obj': 'model'}, 'value'),
+            prevent_initial_call=True
+        )
+        def show_loader(submit_n_clicks, model):
+            if submit_n_clicks:
+                # partial update
+                p = Patch()
+                p.update({'display': 'inline-flex'})
+                return p
 
         # Launch the customized model
         @self.app.callback(
-            Output('model-results-tab', 'children'),
+            [Output({'obj': 'model-results-tab', 'action': 'new-model'}, 'children'),
+             Output({'obj': 'model-train-loader', 'action': 'new-model'}, 'style', allow_duplicate=True)],
             Input({'obj':'confirmation', 'action': 'new-model'}, 'submit_n_clicks'),
             [State({'action': 'new-model-params', 'obj': ALL}, 'value'),
              State('X-select', 'value'),
-             State('ma-select', 'value')],
+             State('ma-select', 'value'),
+             State('fp-select', 'value')],
             prevent_initial_call=True
         )
-        def custom_model_result(submit_n_clicks, params, X_use, ma_lst):
+        def custom_model_result(submit_n_clicks, params, X_use, ma_lst, fp_lst): 
             if submit_n_clicks:
-                # use Patch
-                p = Patch()
+                # define parameters
                 params_dict={k: params[i] for i, k in enumerate(['model', 'scopes', 'eta_', 'alpha_', 'lambda_', 'iter_', 'max_death_'])}
                 params_dict.update({'X_use': X_use})
-                print(params_dict, ma_lst)
+                # get model name
                 model = params_dict['model']
-                """# train model
+                # get scope list
+                sc_lst = params_dict['scopes']
+
+                # train model
                 f1, f2, f3 = self.PA.model_learning(**params_dict)
                 if model != 'LogR':
-                    f4, f5 = self.detail(model=model, ma=ma_lst[0])
+                    f4, f5 = self.PA.detail_perf(model=model, ma=ma_lst[0])
+                else:
+                    f4, f5 = go.Figure(), go.Figure()
+
                 # update model count
                 self.num_new_model += 1
                 model_id = model + f'_M{self.num_new_model}'
                 # add elements
                 new_model_elements = [
                     html.H4(f"New Model {self.num_new_model}: {model}", style={'color': '#d9d9d9', 'margin': '20px 0'}),
+                    #html.H5("Parameters", style={'color': '#d9d9d9', 'margin': '15px'}),
+                    #dbc.Row([show all parameters]),
                     self.design_ha_viz(viz=[f for f in f1], legends=True),
                     S_DASH_LINE,
                     html.H4("Backward Elimination & Development of Coefficients", style={'color': '#d9d9d9', 'margin': '20px 0'}),
                         self.design_ha_viz(
-                            viz=[f2, f3], 
+                            viz=[f2, f3] if model != 'CART' else [f3], 
                     )
                 ]
+
                 # for only LinR and CART
                 if model != 'LogR':
                     new_model_elements += [
                         S_DASH_LINE,
                         html.H4("Prediction Error and Its Distribution", style={'color': '#d9d9d9', 'margin': '20px 0'}),
+                        self.design_def_perf_select(model, ma_lst, fp_lst, sc_lst),
+                        html.Button(
+                        'Generate New Figures', 
+                        id={'obj': 'finalize-button', 'action': 'plot-detail-perf', 'model': model_id}, 
+                        n_clicks=0, 
+                        style=BUTTON_STYLE
+                    ),   
+                    self.design_ha_viz(viz=[f4, f5], model=model_id)
+                    ]   
 
-                    ]
-                """
-
-                # Define all results
+                # define newly added model results
                 new_model_results = dbc.Tab(
-                    label=f"M{self.num_new_model}: {model}", 
-                    children=[html.Div('example')],
-                )
-                
-                # Append all results
-                p.append(new_model_results)
+                    label=f"M{self.num_new_model}: {model}",
+                    children=[html.Div(new_model_elements)]
+                    )
+                # Patch: partial 
+                p1, p2 = Patch(), Patch()
+                p1.append(new_model_results)
+                p2.update({'display': 'None'})
+                    
+                return [p1, p2]
 
-                return p
         
 
         # Update Detailed Performance
