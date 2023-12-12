@@ -181,27 +181,56 @@ class Design:
         """
         Create the header of the app
         """
-        header = dbc.Navbar(
-            [
-                dbc.Container(
-                    [
-                        # Title
+        header = dbc.Navbar([
+            html.Div(
+                html.A(
+                    dbc.NavbarBrand(
+                        "Incrementally Learning Predictive Models based on Macroeconomic Indicators",
+                        style={'fontSize': '23px'}),
+                    href="/"
+                ),
+                style={'width': '100%', 'padding': '30 15px'}
+            ),
+            dbc.Row(
+                [
+                    dbc.Col(
+                        [
+                            # Course Information and User Details
+                            html.P("Course: Predictive Analysis | Seneca Polytechnic", className="text-muted"),
+                            html.P("Student: Ran Arino | Data Science and Analytics", className="text-muted"),
+                        ],
+                        width=10,
+                        style={'paddingLeft': '20px'}
+                    ),
+                    dbc.Col([
+                        # LinkedIn and GitHub Links
                         html.A(
-                            dbc.Row(
-                                [
-                                    dbc.Col(dbc.NavbarBrand("S&P500 Predictive Analysis", className="ml-2")),
-                                ],
-                                align="center",
-                            ),
-                            href="/",
+                            [html.I(className="fab fa-linkedin"), " LinkedIn"],
+                            href="https://www.linkedin.com/in/ran-arino-25253022b/",
+                            className="nav-link",
+                            target="_blank",
+                            style={'padding': '10px 0'}
+
+                        ),
+                        html.A(
+                            [html.I(className="fab fa-github"), " GitHub"],
+                            href="https://github.com/RanArino",
+                            className="nav-link",
+                            target="_blank",
+                            style={'padding': '10px 0'}
                         ),
                     ],
-                    fluid=True,
-                ),
-            ],
-            color="dark",
-            dark=True,
-            style={"height": "100px", 'marginBottom': '20px'},
+                    width=2,
+                    style={'fontSize': '18px'}
+                    ),
+                ],
+                className="align-items-start",
+                style={'width': '100%', 'padding': '15px 25px'}
+            ),
+        ],
+        color="dark",
+        dark=True,
+        style={'flex-wrap': 'wrap'},
         )
 
         return header
@@ -1081,9 +1110,8 @@ class Design:
             One of possible reasons: unable to adjust the model parameters by focusing on the recent data, like linear and logistic regression.
         """
         texts_cart_coef = """
-            Showing feature importance on tree diagram; how effectively the threshold of each independent variable separates class labels.
-            So, if either one of the class labels is dominant in two groups or nodes after splitting, its independent variable could be more important.
-            Based on this theory, IPM shows the largest predictive performance for SP500 by defining a specific threshold.
+            Showing feature importance on tree diagram; how effectively the threshold of each independent variable minimizes the mean square of the predicted error.
+            Based on this theory, IPM shows the largest contribution to forecast the future value of SP500 more accurately, compared to other economic indicators.
         """
         cart_elements = [
             html.H4("Regression Metrics / KPIs", style={'color': '#d9d9d9', 'margin': '20px 0'}),
