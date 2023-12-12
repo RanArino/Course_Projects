@@ -1,3 +1,7 @@
+#####
+# This is Python file storing all necessary functions for my project.
+#####
+
 import numpy as np
 from numpy.typing import NDArray
 import pandas as pd

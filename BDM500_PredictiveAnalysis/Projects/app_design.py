@@ -1,3 +1,6 @@
+#####
+# This python file stores all web app components.
+#####
 from dash import Dash, html, dash_table, dcc, Output, Input, State, ALL, MATCH, ctx, Patch, no_update
 import dash_bootstrap_components as dbc
 import dash_mantine_components as dmc
@@ -189,7 +192,7 @@ class Design:
                         style={'fontSize': '23px'}),
                     href="/"
                 ),
-                style={'width': '100%', 'padding': '30 15px'}
+                style={'width': '100%', 'padding': '30px 15px'}
             ),
             dbc.Row(
                 [
@@ -683,7 +686,7 @@ class Design:
                 The longer SC is set, the more generalized the model could be, but the more likely the model could miss the latest market moves.
             """,
             """
-                Future Prediction (FP) implies how much months the model will predict SP500 growth based on the latest data.
+                Future Prediction (FP) implies how much many the model will predict SP500 growth based on the latest data.
                 If FP is 6 (months), the model attempts to predict the growth of SP500 after six months.
                 The longer FP is set, the lower the predictive performance the model could have.
             """,
@@ -1122,7 +1125,7 @@ class Design:
             ),
             self.design_observe(texts_cart_kpi, type_='Ul', title='Observations: '),
             S_DASH_LINE,
-            html.H4("Development of Coefficients", style={'color': '#d9d9d9', 'margin': '20px 0'}),
+            html.H4("Development of Feature Importances", style={'color': '#d9d9d9', 'margin': '20px 0'}),
             self.design_ha_viz(
                 viz=[self.fig_data['CART']['Coef']], 
                 comments=[texts_cart_coef],
@@ -1215,8 +1218,16 @@ class Design:
             ),
             S_DASH_LINE,
             html.H4("Performance of the Final Model", style={'margin': '30px 5px'}),
+            #self.design_def_perf_select(model='LinBest', fp_data=[1,2], sc_data=[1,3]),
+            #html.Button(
+            #    'Generate New Figures', 
+            #    id={'obj': 'finalize-button', 'action': 'plot-detail-perf', 'model': 'LinBest_M0'}, 
+            #    n_clicks=0, 
+            #    style=BUTTON_STYLE
+            #),   
             self.design_ha_viz(
-                viz=viz_lst, 
+                viz=viz_lst,
+                model='LinBest_M0',
                 comments=comments_perf,
                 attr=[{'style_table': {'width': '600px'}}, {}, {}]
             ),
@@ -1780,7 +1791,7 @@ class Design:
             ]),
         ]
 
-        if model == 'LinR':
+        if model == 'LinR' or model == 'LinBest':
             elements += [
                 html.Div([
                     html.Label('Scopes:', style={'color': '#d9d9d9', 'paddingBottom': '10px'}),
@@ -1814,7 +1825,6 @@ class Design:
 
         return self.design_cards_size(contents=elements, card_width=[4,4,4])
         
-
     def callbacks(self):
 
         # Matching legend in horizontal (ha) figure plots
@@ -1970,8 +1980,6 @@ class Design:
                 p2.update({'display': 'None'})
                     
                 return [p1, p2]
-
-        
 
         # Update Detailed Performance
         @self.app.callback(

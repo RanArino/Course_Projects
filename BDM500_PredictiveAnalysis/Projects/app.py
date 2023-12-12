@@ -1,3 +1,6 @@
+#####
+# This file is main python file for web app
+#####
 from dash import Dash
 import dash_bootstrap_components as dbc
 
@@ -24,19 +27,19 @@ design = Design(app, origin_df, current_dir)
 app.layout = dbc.Container([
     design.header(),
     design.overview(),
-    #design.dataset(),
-    #design.data_preprocessing(),
-    #design.data_observation(),
-    #design.model_descript(),
-    #design.model_dataset(),
-    #design.model_result(),
-    #design.model_finalize(),
-    #design.conclution(),
-    #design.further_approach(),
+    design.dataset(),
+    design.data_preprocessing(),
+    design.data_observation(),
+    design.model_descript(),
+    design.model_dataset(),
+    design.model_result(),
+    design.model_finalize(),
+    design.conclution(),
+    design.further_approach(),
 ], fluid=True, style={'padding': '0'})
 
 # define all callbacks
-#design.callbacks()
+design.callbacks()
 
 
 if __name__ == "__main__":
