@@ -1,7 +1,42 @@
 config.py
-BDM500_PredictiveAnalysis/Projects/config.py
+# My GPTs schema to retrieve all files from GitHub repository
+MyGPTs_schema.json
+
+### Introduction to Programming
+# huge amount of datasets
+BDP100_IntroProgramming/data
+
+### Text Mining ###
+# lecture files (not personal project)
+BDA550_TextMining/Lectures/Week01.py
+BDA550_TextMining/Lectures/Week02.ipynb
+BDA550_TextMining/Lectures/Week03.ipynb
+BDA550_TextMining/Lectures/Week04.ipynb
+BDA550_TextMining/Lectures/Week05.ipynb
+# huge amount of data size
 BDA550_TextMining/Final_Project/articles1.csv
 BDA550_TextMining/Final_Project/articles2.csv
 BDA550_TextMining/Final_Project/articles3.csv
 BDA550_TextMining/Final_Project/df.csv
-MyGPTs_schema.json
+
+### Predictive Analysis ###
+# project config file
+BDM500_PredictiveAnalysis/Projects/config.py
+# lecture
+BDM500_PredictiveAnalysis/Lecture_Week05.ipynb
+# unnecessary data (opened publicly)
+BDM500_PredictiveAnalysis
+BDM500_PredictiveAnalysis/UNRATE.csv
+BDM500_PredictiveAnalysis/PORT941UR.csv
+BDM500_PredictiveAnalysis/Carseats.csv
+BDM500_PredictiveAnalysis/Boston.csv
+BDM500_PredictiveAnalysis/Bank_data.csv
+BDM500_PredictiveAnalysis/automobileEDA.csv
+BDM500_PredictiveAnalysis/Automobile_Data.csv
+# unnecessary data (for classification tree)
+BDM500_PredictiveAnalysis/boston_rg_tree.dot
+BDM500_PredictiveAnalysis/boston_rg_tree.png
+BDM500_PredictiveAnalysis/boston_tree.dot
+BDM500_PredictiveAnalysis/carseat_tree.dot
+BDM500_PredictiveAnalysis/iris_tree.dot
+BDM500_PredictiveAnalysis/iris_tree.pdf
