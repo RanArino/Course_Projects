@@ -4,7 +4,7 @@ MyGPTs_schema.json
 
 ### Introduction to Programming
 # huge amount of datasets
-BDP100_IntroProgramming/data
+BDP100_IntroProgramming/data/
 
 ### Text Mining ###
 # lecture files (not personal project)
@@ -25,7 +25,6 @@ BDM500_PredictiveAnalysis/Projects/config.py
 # lecture
 BDM500_PredictiveAnalysis/Lecture_Week05.ipynb
 # unnecessary data (opened publicly)
-BDM500_PredictiveAnalysis
 BDM500_PredictiveAnalysis/UNRATE.csv
 BDM500_PredictiveAnalysis/PORT941UR.csv
 BDM500_PredictiveAnalysis/Carseats.csv
