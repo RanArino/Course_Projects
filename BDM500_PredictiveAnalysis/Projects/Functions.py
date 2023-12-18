@@ -1022,4 +1022,3 @@ class PredictiveAnalysis:
             )
         
         return fig
-

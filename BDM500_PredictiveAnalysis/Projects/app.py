@@ -2,6 +2,7 @@
 # This file is main python file for web app
 #####
 from dash import Dash
+from flask import Flask
 import dash_bootstrap_components as dbc
 
 import os
@@ -21,6 +22,7 @@ app = Dash(external_stylesheets=[
     dbc.themes.DARKLY,
     "https://use.fontawesome.com/releases/v5.8.1/css/all.css"
     ])
+server: Flask = app.server  # type: ignore
 
 design = Design(app, origin_df, current_dir)
 
@@ -41,6 +43,9 @@ app.layout = dbc.Container([
 # define all callbacks
 design.callbacks()
 
+@server.route('/health')
+def health_check():
+    return 'Healthy', 200 
 
 if __name__ == "__main__":
     app.run_server(debug=True)
