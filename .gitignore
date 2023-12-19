@@ -1,6 +1,6 @@
 config.py
-# My GPTs schema to retrieve all files from GitHub repository
-MyGPTs_schema.json
+# My GPTs schemas
+MyGPTs_schema/
 
 ### Introduction to Programming
 # huge amount of datasets
