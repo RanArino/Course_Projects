@@ -42,10 +42,14 @@ BDM500_PredictiveAnalysis/iris_tree.pdf
 ### BDM600 Advanced Data Viz
 BDM600_AdvancedDataViz/Memo.txt
 BDM600_AdvancedDataViz/test/
+BDM600_AdvancedDataViz/Lab02
 
 ### BDA600 Social Media Analysis
 # auth files
 BDA600_SocialMediaAnalytics/auth.yml
+# dataset
+BDA600_SocialMediaAnalytics/full-corpus-x.csv
+BDA600_SocialMediaAnalytics/full-corpus-training.csv
 
 ### BDB600 Business Intelligence
 BDB600_BusinuessIntelligence/Lab03
