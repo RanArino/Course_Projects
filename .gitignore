@@ -48,8 +48,8 @@ BDM600_AdvancedDataViz/Lab02
 # auth files
 BDA600_SocialMediaAnalytics/auth.yml
 # dataset
-BDA600_SocialMediaAnalytics/full-corpus-x.csv
-BDA600_SocialMediaAnalytics/full-corpus-training.csv
+BDA600_SocialMediaAnalytics/data/
 
 ### BDB600 Business Intelligence
 BDB600_BusinuessIntelligence/Lab03
+BDB600_BusinuessIntelligence/Project
