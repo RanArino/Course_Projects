@@ -57,6 +57,8 @@ BDA600_SocialMediaAnalytics/auth.yml
 BDA600_SocialMediaAnalytics/data/
 # week08 example
 BDA600_SocialMediaAnalytics/Week08_Example/
+# project memo
+BDA600_SocialMediaAnalytics/Project/Memo.ipynb
 
 ### BDB600 Business Intelligence
 BDB600_BusinuessIntelligence/Lab03
