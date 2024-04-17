@@ -1,0 +1,35 @@
+---
+title: "Lab09 - Logistic Regression"
+author: "Ran Arino"
+date: "2024-04-17"
+output: pdf_document
+---
+
+
+```{r}
+# library impoart
+library(HistData)
+library(Matrix)
+library(effects)
+```
+
+```{r}
+# load data
+data("Arbuthnot", package = "HistData")
+```
+
+### 7.1
+```{r}
+# define model
+model <- glm(cbind(Males, Females) ~ Year + Plague + Mortality, family = binomial, data = Arbuthnot)
+
+# display summary
+summary(model)
+
+# effect plot
+plot(allEffects(model))
+```
+
+- The "Year" attribute does not show a significant impact on male births due to larger p-value.
+- The "Plague" attribute shows a marginal effect on the proportion of male births. Although the a lower p-value implies potential influence but does not show a statistical significance.
+- On the other hand, the "Mortality" attribute has a significant negative impact on the porportion of male births. This is the only explanatory variable 
