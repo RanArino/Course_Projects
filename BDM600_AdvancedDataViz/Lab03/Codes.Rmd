@@ -1,0 +1,258 @@
+---
+title: "BDM600 - Lab 3 - Group 8"
+author: "Ran Arino; Zubeka Dane Dang; Solmaz Heidar Nassab"
+date: "2024-02-12"
+output: pdf_document
+---
+
+## Credentials
+All members participated in this lab assignment. The file is the merged version.
+
+## Start
+```{r}
+# install libraries
+library(xtable)
+library(vcd)
+library(gnm)
+library(grid)
+library(vcdExtra)
+```
+
+## Exercise (1)
+```{r}
+# get the dataset list
+ds <- datasets(package = c("vcd", 'vcdExtra'))
+str(ds, vec.len = 2)
+
+# (a): show the number of datasets on each package
+table(ds$Package)
+
+# (b): show the tabluer display based on Package and class
+table(ds$Package, ds$class)
+
+# (c): examine help files
+help(Employment)
+example(Employment)
+```
+- (a): The outpus shows the 78 observations; 33 datasets in vcd and 45 datasets in vcdExtra.
+- (b): Shown above
+- (c): Retrieved the following description: Data from a 1974 Danish study given by Andersen (1991) on the employees who had been laid off. The workers are classified by their employment status on 1975-01-01, the cause of their layoff and the length of employment before they were laid off.
+
+## Exercise (2)
+
+### (a) Abortion opinion data: Abortion
+```{r}
+data(Abortion, package="vcdExtra")
+str(Abortion)
+help(Abortion)
+```
+* The "Support_Abortion" variable appears to be the response variable, indicating whether individuals support abortion or not.
+* The "Sex" and "Status" variables could potentially serve as explanatory variables.
+* "Sex" and "Support_Abortion"variables appear to be unordered (nominal) variables as they represent categorical data without inherent ordering. "Status" factor should be treated as ordered of "low" and "hight".
+* Substantive questions of interest for analysis of the data might include:
+
+- Is there a significant difference in abortion support between males and females?
+- Does socioeconomic status (as represented by the "Status" variable) influence opinions on abortion?
+
+### (b) Caesarian Births: Caesar
+```{r}
+data(Caesar, package="vcdExtra")
+str(Caesar)
+help(Caesar)
+```
+* "Infection" is regarded as the response variable.
+* "Risk", "Antibiotics", and "Planned" serve as explanatory variables.
+* All four factors appear to be unordered (nominal) variables as they represent categorical data without inherent ordering.
+* Substantive questions of interest for analysis of the data:
+- What factors are associated with the likelihood of different types of infections during birth?
+- Does the use of antibiotics affect the risk of infection?
+
+### (c) Dayton Survey: DaytonSurvey
+```{r}
+data(DaytonSurvey, package="vcdExtra")
+str(DaytonSurvey)
+help(DaytonSurvey)
+```
+* The factors "cigarette", "alcohol", "marijuana", and "Freq" serve as response variables.
+* "sex" and "race" typically treated as explanatory variables.
+* "Freq" can be treated as orders from low to high number, while others factors are unordered (nominal) variables as they represent categorical data without inherent ordering.
+* Substantive questions of interest for analysis of the data:
+- Is there a relationship between substance use and demographic characteristics such as sex or race?
+- What is the largest category among the three addicted products for those who use them frequently, such as more than 50 or 100 times?
+
+### (d) Minnesota High School Graduates: Hoyt
+```{r}
+data(Hoyt, package="vcdExtra")
+str(Hoyt)
+help(Hoyt)
+```
+* "Status" is natural to consider as the response variable.
+* "Rank", father's "Occupation", and "Sex" are explanatory variables.
+* "Rank" and "Occupation" can be treated as ordered, while "Status" and "Sex" are unoerders (nominal) variables.
+* Substantive questions of interest for analysis of the data:
+- Is there a relationship between post-high school status and father's occupation or high school graduate rank?
+
+
+## Exercise (3)
+```{r}
+data(UCBAdmissions, package="vcdExtra")
+str(UCBAdmissions)
+help(UCBAdmissions)
+ftable(UCBAdmissions)
+
+# (a): Total number of cases contained in this table
+total_cases <- sum(UCBAdmissions)
+print(total_cases)
+
+# (b): For each department, find the total number of applicants
+total_applicants_by_dept <- apply(UCBAdmissions, 3, sum)
+print(total_applicants_by_dept)
+
+# (c): For each department, find the proportion of applicants who were admitted
+admitted <- UCBAdmissions["Admitted", , ]
+total_admitted_by_dept <- apply(admitted, 2, sum)
+proportion_admitted_by_dept <- total_admitted_by_dept / total_applicants_by_dept
+print(proportion_admitted_by_dept)
+
+# (d): Construct tabluar with row of department and column of gender.
+#  get admitted applicants by gender and department
+admitted_by_gender_dept <- apply(UCBAdmissions["Admitted", , , drop = FALSE], c("Dept", "Gender"), sum)
+#  get total applicants by gender and department
+total_by_gender_dept <- apply(UCBAdmissions, c("Dept", "Gender"), sum)
+#  calculate proportions
+prop_admitted_by_gender_dept <- admitted_by_gender_dept / total_by_gender_dept
+print(prop_admitted_by_gender_dept)
+```
+
+## Exercise (4)
+```{r}
+data(DanishWelfare, package="vcd")
+str(DanishWelfare)
+
+# (a): Total number of cases
+total_cases <- sum(DanishWelfare$Freq)
+print(total_cases)
+
+# (b): Change variables "Alcohol" and "Income" to make them ordered.
+DanishWelfare$Alcohol <- ordered(DanishWelfare$Alcohol)
+DanishWelfare$Income <- ordered(DanishWelfare$Income)
+
+# (c): Convert to table form
+DanishWelfare.tab <- xtabs(Freq ~ Alcohol + Income + Status + Urban, data = DanishWelfare)
+
+# (d): display total frequencies for each category of Urban & Collapse categories.
+#  frequency for each category
+total_Freq_In_Urban <- aggregate(Freq ~ Urban, data = DanishWelfare, sum)
+print(total_Freq_In_Urban)
+#  collapse
+non_city_list <- c("Copenhagen", "SubCopenhagen", "LargeCity", "Country")
+DanishWelfare$Urban <- ifelse(DanishWelfare$Urban %in% non_city_list, "City", "Non-city")
+DanishWelfare.tab.collapsed <- xtabs(Freq ~ Alcohol + Income + Status + Urban, data = DanishWelfare)
+print(DanishWelfare.tab.collapsed)
+
+# (e): Use structable() or ftable() for a flattened display.
+DanishWelfare.ftable <- ftable(DanishWelfare.tab.collapsed)
+print(DanishWelfare.ftable)
+```
+
+## Exercise (5)
+```{r}
+data("UKSoccer", package = "vcd")
+ftable(UKSoccer)
+
+# (a): Verify the total number of games
+games <- apply(UKSoccer, c(1), sum)
+print(sum(games))
+
+# (b): Marginal total of goals scored by each of the home and away teams
+addmargins(UKSoccer)
+
+# (c): Express each of the marginal totals as proportions
+prop.table(UKSoccer)
+
+# (d): Comment on the dist. of the numbers of home-team and away-team goals
+marginal_home_goals <- rowSums(UKSoccer)
+marginal_away_goals <- colSums(UKSoccer)
+
+# Calculate the mean number of goals for home and away teams
+mean_home_goals <- sum(marginal_home_goals * seq_along(marginal_home_goals)) / sum(marginal_home_goals)
+mean_away_goals <- sum(marginal_away_goals * seq_along(marginal_away_goals)) / sum(marginal_away_goals)
+
+# Homw: 
+print(mean_home_goals)
+# Away: 
+print(mean_away_goals)
+```
+From the result above, home teams score more goals on average compared to the scores of the away teams.
+
+## Exercise (6)
+```{r}
+data("Saxony", package = "vcd")
+print(str(Saxony))
+
+data("Geissler", package = "vcdExtra")
+print(str(Geissler))
+
+# (a): create data frame
+sax12 <- subset(Geissler, Geissler$size == 12)
+print(sax12)
+
+# (b): Select the columns for boys and Freq.
+sax12_boy <- subset(sax12, select = c(boys, Freq))
+print(sax12_boy)
+
+# (c): Use xtabs() with a formula, Freq ~ boys, to create the one-way table
+oneway_sax12_boy <- xtabs(Freq ~ boys, data = sax12_boy)
+print(oneway_sax12_boy)
+
+# (d): same step for size == 11.
+Saxony11 <- subset(Geissler, Geissler$size == 11)
+oneway_saxony11_boy <- subset(Saxony11, select = c(boys, Freq))
+print(oneway_sax12_boy)
+```
+
+## Exercise (7)
+```{r}
+# (a)
+# load data; might need to execute this code
+#require(graphics)
+# convert UCBAdmissions to data frame
+ucb_df <- as.data.frame(UCBAdmissions)
+# maipulate factors with interaction
+ucb_df$AdmitGender <- with(ucb_df, interaction(Admit, Gender))
+# convert back to table
+UCB.tab2_long<- xtabs(Freq ~ AdmitGender + Dept, data = ucb_df)
+# display table
+structable(UCB.tab2_long)
+```
+
+```{r}
+# (b)
+# Use ftable
+ucb_ftable <- ftable(Admit ~ Gender + Dept, data = UCBAdmissions)
+# convert ftable to a matrix
+UCB.tab2_short <- as.matrix(ucb_ftable)
+UCB.tab2_short
+
+# Use structable 
+ucb_structable <- structable(Admit ~ Gender + Dept, data = UCBAdmissions)
+UCB.tab2_structable <- as.matrix(ucb_structable)
+UCB.tab2_structable
+```
+
+## Exercise (8)
+```{r}
+# show data info
+data("VisualAcuity", package = "vcd")
+str(VisualAcuity)
+
+# (a): 4 x 4 freq table for each gender
+xtabs(VisualAcuity)
+
+# (b): organized tabular display
+structable(VisualAcuity)
+
+# (c): HTML table
+xtable(VisualAcuity, type = "html")
+```
+

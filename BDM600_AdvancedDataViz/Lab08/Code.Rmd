@@ -1,0 +1,122 @@
+---
+title: "BDM600 - Lab 8 - Group 8"
+author: "Ran Arino; Zubeka Dane Dang; Solmaz Heidar Nassab"
+date: "2024-04-03"
+output: pdf_document
+---
+
+## Credentials
+All members participated in this lab assignment. The file is the merged version.
+
+## Start
+```{r}
+library(vcd)
+library(vcdExtra)
+library(logmult)
+library(MASS)
+library(ca)
+```
+
+### 6.1
+#### (a)
+```{r}
+# load data
+data(JobSat)
+# simple correspondence analysis
+JobSat.ca <- ca(JobSat)
+summary(JobSat.ca, rows = FALSE, columns = FALSE)
+```
+- The inertia accounted for by the one-dimensional solution is 76.4%, which indicates that the first dimension captures a significant portion of the variability in the data.
+- The inertia in two-dimensional solution shows an additional 19.7%, which means the the culumative percentage captures 96.1% of variability in the data.
+
+#### (b)
+```{r}
+# 2D CA solutiton
+plot(JobSat.ca)
+```
+- Point "> 40k" shows the longest vector and being close to the x-axis, which shows the most significant impact on the data distribution, its variance captured by the first dimension.
+- Points "<15K", "15-25K", and "ModerateS" have the same angle of vectors, which means that they have similar pattern of association with other categories, although their impact on variance varies.
+- Points "VeryD" and "LittleD" close to the y-axis, which shows they are captured by the second dimension.
+- Points "<15k" and "ModerateS" are close to each other, which means that the nature of their data are similar.
+- Overall, the first dimension can handle the satisfaction levels (worse in left or better in right side) and the income level (lower&medium in left side vs higher incomes in right side)
+
+### 6.2
+```{r}
+data(criminal)
+criminal
+```
+#### (a)
+```{r}
+# display ca summary
+criminal.ca <- ca(criminal)
+summary(criminal.ca, rows = FALSE, columns = FALSE)
+```
+- The result shows that the accounted for by the one-dimensional solution is more than 90%.
+- Hence, almost all portions of the variability are captured in a single dimension.
+
+#### (b)
+```{r}
+# plot ca
+plot(criminal.ca)
+```
+- Similarity is identified among points "15", "16", and "1958"; they have the same direction and length of vector.
+- The category points for both year and age vary systematically over Dimension 1. 
+- There were more younger men in later years, and more older in earlier years.
+
+### 6.3
+```{r}
+# load data
+data(AirCrash)
+# form a table
+AirCrash.tab <- xtabs(~ Phase + Cause,  data = AirCrash)
+AirCrash.tab
+```
+
+#### (a)
+```{r}
+# show ca summary
+AirCrach.ca <- ca(AirCrash.tab)
+summary(AirCrach.ca, rows = FALSE, columns = FALSE)
+```
+- The 65.6% of variance is accounted for the first dimension.
+- The 27.5% of variance is accounted for the second dimension; the 93.1% of data can be explained in tatal of the first and second dimensions.
+
+#### (b)
+```{r}
+# plot ca
+plot(AirCrach.ca)
+```
+- Overall, "mechanical" and "human-related or weather" causes are more associated with specific flight phases (take-off and landing), respectively.
+- Both points of "standing" and "criminal" are relatively rare cases, compared to othe categories.
+- Dimension 1 primarily differentiates incidents occurring during standing and landing phases, with a focus on human error and weather problems.
+- Dimension 2 primarily differentiates incidents occurring during standing and take-off phases, with a greater emphasis on mechanical problems during take-off.
+  
+#### (c)
+```{r}
+# plot ca; map 'symbiplot'
+plot(AirCrach.ca, map = "symbiplot", arrows = c(FALSE, TRUE))
+```
+
+### 6.4
+```{r}
+# load data
+data(caith)
+caith
+```
+
+#### (a)
+```{r}
+# show ca summary
+caith.ca <- ca(caith)
+summary(caith.ca, rows=FALSE, columns=FALSE)
+```
+- The analysis shows that associations can be explained by a one-dimensional answer, which is accounted by 86.6%. Adding a second dimension solution essentially complete, which achieved 99%. 
+- Additional third dimension does not add much to the explanation of how the variables are connected.
+
+#### (b)
+```{r}
+# display ca plot
+plot(caith.ca, lines = TRUE)
+```
+- We can observe that while Dimension 1 represents the primary light-dark dimension for hair and eye color, accounting for nearly 86.6% of the association between hair and eye color corresponds to dark (left) vs. light (right) on both variables.
+- Dimension 2 could be called "extremes vs. middle", but in CA results with largely 1D association.

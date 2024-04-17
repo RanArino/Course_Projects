@@ -1,0 +1,134 @@
+---
+title: "BDM600 - Lab 7 - Group 8"
+author: "Ran Arino; Zubeka Dane Dang; Solmaz Heidar Nassab"
+date: "2024-04-03"
+output: pdf_document
+---
+
+## Credentials
+All members participated in this lab assignment. The file is the merged version.
+
+## Start
+```{r}
+library(vcd)
+library(vcdExtra)
+library(logmult)
+library(MASS)
+library(Lahman)
+```
+
+## 5.1
+```{r}
+# load data
+data("criminal", package = "logmult")
+criminal
+```
+
+### (a)
+```{r}
+model <- loglm(~ Year + Age, data = criminal)
+summary(model)
+```
+- Both the likelihood ratio and Pearson chi-squared tests have very low p-values (much less than 0.05).
+- This result supports that the dropping of charges is associated with age, and this relationship has charged over the years recorded in the dataset.
+
+### (b)
+```{r}
+# mosaic with the option shade = TRUE
+mosaic(criminal, shade = TRUE, legend = FALSE)
+# Friendly shade
+mosaic(criminal, shade = TRUE, legend = FALSE, gp = shading_Friendly)
+```
+- First plot: Darker shades in the combination of a few groups indicate high frequencies, Year 1995 and Age 19, as well as Year 1958 and Age 16.
+- Second plot: If we see that the cells with solid lines (which indicate higher-than-expected frequencies of dropped charges) are more prevalent in the younger age groups as time progresses from 1955 to 1958.
+- To wrap up, the mosaic plots, especially with Friendly shade, shows that there is an observable trend where younger men aged 15-19 were more likely to have charges dropped as time went on from 1955 to 1958.
+
+## 5.2
+```{r}
+data("AirCrash", package = "vcdExtra")
+aircrash_tab <- xtabs(~ Phase + Cause, data = AirCrash)
+aircrash_tab
+```
+
+### (a)
+```{r}
+mosaic(aircrash_tab, shade = TRUE, legend = FALSE)
+```
+- Here are the combinations that show higher-than-expected frequencies.
+  - En route vs criminal
+  - Landing vs Weather
+  - Take-off vs mechanical
+- However, interpreting the cells labeled as "unknown" may pose challenges due to insufficient information.
+
+### (b)
+```{r}
+# shortest possible labels
+abbrev <- list(abbreviate = TRUE, rot_labels = TRUE, cex = 0.8)
+mosaic(aircrash_tab, shade = TRUE, legend = FALSE, labeling_args = abbrev)
+
+# alternate labels
+mosaic(aircrash_tab, shade = TRUE, alternate_labels = TRUE, legend = FALSE)
+
+```
+
+### (c)
+```{r}
+# Calculate marginal frequencies for each factor
+phase_freq <- sort(margin.table(aircrash_tab, 1), decreasing = TRUE)
+cause_freq <- sort(margin.table(aircrash_tab, 2), decreasing = TRUE)
+
+# Reorder factors in the data frame
+AirCrash$Phase <- factor(AirCrash$Phase, levels = names(phase_freq))
+AirCrash$Cause <- factor(AirCrash$Cause, levels = names(cause_freq))
+
+# Now create the mosaic plot with the reordered factors
+abbrev <- list(abbreviate = TRUE, rot_labels = TRUE, cex = 0.8)
+mosaic(~ Phase + Cause, data = AirCrash, shade = TRUE, legend = FALSE, labeling_args = abbrev)
+
+```
+
+## 5.3
+```{r}
+# renamed the file from "Master" to "People"
+data("People", package = "Lahman")
+basehands <- with(People, table(throws, bats))
+
+mosaic(basehands, shade = TRUE, legend = FALSE)
+```
+- There are more than expected number of people who throw and swing with the same handedness (left-handed throwers typically bat left-handedly, and right-handed throwers predominantly bat right-handedly).
+- On the other hand, there are less than expected number of people who throw and swing with different handedness. 
+
+## 5.7
+```{r}
+# load data
+data("caith", package = "MASS")
+caith
+```
+
+### (a)
+```{r}
+# create matrix
+caith.mat <- as.matrix(caith)
+dimnames(caith.mat)
+names(dimnames(caith.mat)) <- c("Eye", "Hair")
+caith.mat
+```
+
+### (b)
+```{r}
+# fit the model using loglm()
+caith.model <- loglm(~ Hair + Eye, data = caith.mat, fitted = TRUE)
+caith.model
+```
+
+### (c)
+```{r}
+# calculate residuals for this model
+residuals(caith.model)
+```
+
+### (d)
+```{r}
+# display mosaic
+mosaic(caith.mat, shade = TRUE, legend = FALSE)
+```
