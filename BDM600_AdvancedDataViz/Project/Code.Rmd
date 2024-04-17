@@ -1,0 +1,190 @@
+---
+title: "BDM600 - Project"
+author: "Ran Arino; Zubeka Dane Dang; Solmaz Heidar Nassab"
+date: "2024-04-08"
+
+---
+
+#Accident data: 
+The data set *Accident in vcdExtra* gives a 4-way table of frequencies of traffic
+accident victims in France in 1958. It is a frequency data frame representing a 5 × 2 × 4 × 2 table of
+the variables age, result (died or injured), mode of transportation, and gender. What factors determine
+mortality in a traffic accident?
+
+```{r}
+# load the libraries and data
+library(vcdExtra)
+data("Accident", package="vcdExtra")
+help(Accident)
+tail(Accident)
+print(dim(Accident))
+```
+```{r}
+# check dimension
+dim(Accident)
+```
+
+```{r}
+summary(Accident)
+```
+## Traffic Accident Victims in France in 1958
+### Description
+Bertin (1983) used these data to illustrate the cross-classification of data by numerous variables, each of which could have various types and could be assigned to various visual attributes.
+
+For modeling and visualization purposes, the data can be treated as a 4-way table using loglinear models and mosaic displays, or as a frequency-weighted data frame using a binomial response for result ("Died" vs. "Injured") and plots of predicted probabilities.
+Dataset: contain 5 columns and 80 samples
+* age: an ordered factor with levels 0-9 < 10-19 < 20-29 < 30-49 < 50+
+* result: a factor with levels Died Injured
+* mode: mode of transportation, a factor with levels 4-Wheeled Bicycle Motorcycle Pedestrian
+* gender: a factor with levels Female Male
+* Freq: a numeric vector
+
+### Simple Visualization
+```{r}
+# Load libraries
+library(ggplot2)
+library(forcats)
+library(dplyr)
+# Plot number of people with different modes in accident
+Accident %>%
+  group_by(mode) %>%
+  summarise(freq = sum(Freq)) %>%
+  ggplot(aes(x=fct_reorder(mode,freq,.desc = TRUE),y=freq)) +
+  geom_bar(stat = "identity",fill = "cornflowerblue", width = 0.5) +
+  ggtitle("Number of people with different modes in accident") +
+  xlab("") +
+  theme(panel.grid.major.x = element_blank())
+```
+- Motorcycle is the most common mode involved in accidents, followed by 4-wheeled vehicles, pedestrians, and finally bicycles.
+
+```{r}
+# Number of people of different ages in accident
+Accident %>%
+  group_by(age) %>%
+  summarise(freq = sum(Freq)) %>%
+  ggplot(aes(x=age,y=freq)) +
+  geom_bar(stat = "identity",fill = "cornflowerblue",  width = 0.7) +
+  ggtitle("Number of people of different ages in accident") +
+  xlab("") +
+  coord_flip() +
+  theme(panel.grid.major.x = element_blank())
+```
+- Individuals aged 30-49 experience the highest frequency of accidents, which is understandable given that this age group encompasses the most common working-age population that typically commutes more frequently. 
+- Following groupa are individuals aged 50+, then those aged 20-29. Individuals aged 10-19 experience accidents less frequently, and the least common occurrence is among children aged 0-9
+
+### a. Use loglm() to fit the model of mutual independence, Freq ~ age+mode+gender+result to this data set.
+```{r}
+library(MASS)
+accident_model <- loglm(Freq ~ age + mode + gender + result, data = Accident)
+accident_model
+```
+- Both Likelihood Ratio Test and Pearson Test statistic have high chi-square (X^2) is 60320 and 76865.31 with 70 degrees of freedom, and the p-value is 0
+- It implies that there is a strong assoications between variables in the model under the null hypothesis of independence between variables.
+
+### b. Follow this with mosaic() to produce an interpretable mosaic plot of the associations among all variables under the model of mutual independence. Try different orders of the variables in the mosaic. (Hint: the abbreviate component of the labeling_args argument to mosaic() will be useful to avoid some overlap of the category labels.)
+```{r}
+mosaic(accident_model, labeling_args = list(abbreviate = TRUE))
+```
+
+### c. Now, carry out a multiple correspondence analysis of these data. You will need to convert the data frame to a 4-way table, accident_tab <- xtabs(Freq ~ age + mode + gender + result, data = Accident) What can you say about the degree to which the table can be approximated by a 2D solution?
+```{r}
+# Convert data frame to a 4-way table
+accident_tab <- xtabs(Freq ~ age + mode + gender + result, data = Accident)
+structable(mode + gender ~ age + result, data=accident_tab)
+summary(accident_tab)
+```
+
+
+```{r}
+library(ca)
+# multiple correspondence analysis
+accident_mca <- mjca(accident_tab)
+summary(accident_mca)
+```
+- Eigenvalues represent the amount of variability in the data captured by each dimension (or principal component) of the MCA solution.Here, the first dimension (k=1) explains 46.5% of the total variability, and the second dimension (k=2) explains an additional 21.7%.
+
+```{r}
+# MCA plot
+res <- plot(accident_mca, labels = 0, pch = ".", cex.lab = 1.0)
+
+# extract factor names and levels
+coords <- data.frame(res$cols, accident_mca$factors)
+nlev <- accident_mca$levels.n
+fact <- unique(as.character(coords$factor))
+
+cols <- c("blue", "red", "green", "black")
+points(coords[,1:2], pch=rep(16:19, nlev), col=rep(cols, nlev), cex=1.0)
+text(coords[,1:2], label=coords$level, col=rep(cols, nlev), pos=2,
+cex=1.0, xpd=TRUE)
+lwd <- c(2, 2, 2, 4)
+for(i in seq_along(fact)) {
+lines(Dim2 ~ Dim1, data = coords, subset = factor==fact[i],
+lwd = lwd[i], col = cols[i])
+}
+
+legend(x = 0.6, y = -0.15, 
+legend = c("Age", "Mode", "Gender", "Result"),
+title = "Factor", title.col = "black",
+col = cols, text.col = cols, pch = 12:15,
+bg = "gray95", cex = 0.8)
+```
+--> Overall,
+* Male aged 30-49: more like ly associated with 4-wheeled transportation.
+* Male aged 20-29: more like ly associated with motorcycles.
+* People aged 10-19: more like ly associated with bicycles.
+* People aged 50+ and children aged 0-9: more like ly associated with pedestrian transportation
+
+### d. Construct an informative 2D plot of the solution, and interpret in terms of how the variable result varies in relation to the other factors. [Hint: vcdExtra::mcaplot may be helpful.]
+```{r}
+plot(accident_mca)
+mcaplot(accident_mca)
+```
+
+```{r}
+# mutual independence
+acc.mod0 <- glm(Freq ~ age + result + mode + gender, 
+                data=Accident, 
+                family=poisson)
+LRstats(acc.mod0)
+
+mosaic(acc.mod0, ~mode + age + gender + result)
+
+# result as a response
+acc.mod1 <- glm(Freq ~ age*mode*gender + result, 
+                data=Accident, 
+                family=poisson)
+LRstats(acc.mod1)
+
+mosaic(acc.mod1, ~mode + age + gender + result, 
+    labeling_args = list(abbreviate = c(gender=1, result=4)))
+
+# allow two-way association of result with each explanatory variable
+acc.mod2 <- glm(Freq ~ age*mode*gender + result*(age+mode+gender), 
+                data=Accident, 
+                family=poisson)
+LRstats(acc.mod2)
+mosaic(acc.mod2, ~mode + age + gender + result, 
+    labeling_args = list(abbreviate = c(gender=1, result=4)))
+
+acc.mods <- glmlist(acc.mod0, acc.mod1, acc.mod2)
+LRstats(acc.mods)
+
+## Binomial (logistic regression) models for result
+## ------------------------------------------------
+library(car)  # for Anova()
+acc.bin1 <- glm(result=='Died' ~ age + mode + gender, 
+    weights=Freq, data=Accident, family=binomial)
+Anova(acc.bin1)
+
+acc.bin2 <- glm(result=='Died' ~ (age + mode + gender)^2, 
+    weights=Freq, data=Accident, family=binomial)
+Anova(acc.bin2)
+
+acc.bin3 <- glm(result=='Died' ~ (age + mode + gender)^3, 
+    weights=Freq, data=Accident, family=binomial)
+Anova(acc.bin3)
+
+# compare models
+anova(acc.bin1, acc.bin2, acc.bin3, test="Chisq")
+```
+
