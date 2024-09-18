@@ -59,8 +59,11 @@ BDB600_BusinuessIntelligence/Lab06
 BDB600_BusinuessIntelligence/Project
 
 ### BDA700 Health Analytics
-# Assignmebt01 dataset(link: https://figshare.com/articles/dataset/brain_tumor_dataset/1512427)
-A1_Dataset_Brain/ 
+# Assignment 01 dataset(link: https://www.kaggle.com/datasets/trainingdatapro/brain-mri-dataset)
+datasets/
 
 ### Job assignments
 Job_Assignments/
+
+# Virtual environment
+.venv/
