@@ -61,6 +61,7 @@ BDB600_BusinuessIntelligence/Project
 ### BDA700 Health Analytics
 # Assignment 01 dataset(link: https://www.kaggle.com/datasets/trainingdatapro/brain-mri-dataset)
 datasets/
+heart_2022_with_nans.csv
 
 ### Job assignments
 Job_Assignments/
